@@ -345,13 +345,14 @@ export async function submitBooking(booking: {
   // ── Call the submit-booking edge function ─────────────────────────────────
   // All validation (field checks, slot availability, rate limiting, honeypot)
   // happens server-side. The client no longer writes to `bookings` directly.
-  const supabaseUrl = 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
 
-  // Include the auth header if the user is logged in (optional — anon allowed)
-  const { data: { session } } = await supabase.auth.getSession();
+  // Refresh session so the token is never expired on submission
+  const { data: refreshData } = await supabase.auth.refreshSession();
+  const session = refreshData?.session ?? (await supabase.auth.getSession()).data.session;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ymtwd2Rua2hzYmV5Z255bmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTU1ODcsImV4cCI6MjA4NjIzMTU4N30.reLOBC1F2zbMgAD7Z6I6z_D9s37OhDC4b4Gfr-Ltig8',
+    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
   };
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -418,7 +419,11 @@ export async function submitBooking(booking: {
     if (code === 'TOO_MANY_VEHICLES')
       throw new Error('A maximum of 10 vehicles can be booked at once. Please reduce your selection.');
 
-    throw new Error(msg);
+    // Fallback: humanize any remaining technical message
+    if (msg.includes('JWT') || msg.includes('auth') || res.status === 401) {
+      throw new Error('Your session has expired. Please sign in again and try.');
+    }
+    throw new Error('We could not place your booking. Please check your details and try again.');
   }
 
   return payload.booking_id ?? '';

@@ -15,7 +15,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { fetchSubscriptionPlans, type SubscriptionPlan } from "@/lib/subscriptionService";
 
-const SUPABASE_URL = "https://gzbkpwdnkhsbeygnynbh.supabase.co";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "https://gzbkpwdnkhsbeygnynbh.supabase.co";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,10 +68,21 @@ async function callSubAction(action: string, payload: Record<string, unknown>) {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active:    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  paused:    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  cancelled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  expired:   "bg-muted text-muted-foreground",
+  pending_payment:          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  pending_admin_approval:   "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  active:                   "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  paused:                   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  cancelled:                "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  expired:                  "bg-muted text-muted-foreground",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending_payment:        "Waiting for payment",
+  pending_admin_approval: "Waiting for approval",
+  active:                 "Active",
+  paused:                 "Paused",
+  cancelled:              "Cancelled",
+  expired:                "Expired",
 };
 
 function UsageBar({ used, total }: { used: number; total: number }) {
@@ -296,7 +307,7 @@ function SubRow({ sub, onRefresh }: { sub: SubRecord; onRefresh: () => void }) {
           <p className="text-xs text-muted-foreground">{plan?.plan_name ?? "—"} · renews {sub.renewal_date}</p>
         </div>
         <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLES[sub.status] ?? STATUS_STYLES.expired}`}>
-          {sub.status}
+          {STATUS_LABELS[sub.status] ?? sub.status}
         </span>
         <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
       </button>
@@ -336,21 +347,39 @@ function SubRow({ sub, onRefresh }: { sub: SubRecord; onRefresh: () => void }) {
 
               {/* Status actions */}
               <div className="flex flex-wrap gap-2">
-                {sub.status !== "active" && (
-                  <button type="button" disabled={loading} onClick={() => doAction("update", { status: "active" })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white disabled:opacity-60 transition hover:bg-green-700">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Activate
+                {/* Pending payment: admin confirms they received payment */}
+                {sub.status === "pending_payment" && (
+                  <button type="button" disabled={loading}
+                    onClick={() => doAction("update", { status: "pending_admin_approval" })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white disabled:opacity-60 transition hover:bg-blue-700">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Confirm Payment Received
                   </button>
                 )}
+                {/* Pending approval: admin approves and activates */}
+                {sub.status === "pending_admin_approval" && (
+                  <button type="button" disabled={loading}
+                    onClick={() => doAction("update", { status: "active" })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white disabled:opacity-60 transition hover:bg-green-700">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Approve and Activate
+                  </button>
+                )}
+                {/* Active: can pause */}
                 {sub.status === "active" && (
                   <button type="button" disabled={loading} onClick={() => doAction("update", { status: "paused" })}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white disabled:opacity-60 transition hover:bg-amber-600">
                     <PauseCircle className="w-3.5 h-3.5" /> Pause
                   </button>
                 )}
+                {/* Paused or expired: can reactivate */}
+                {(sub.status === "paused" || sub.status === "expired") && (
+                  <button type="button" disabled={loading} onClick={() => doAction("update", { status: "active" })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white disabled:opacity-60 transition hover:bg-green-700">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Reactivate
+                  </button>
+                )}
                 {sub.status !== "cancelled" && (
                   <button type="button" disabled={loading}
-                    onClick={() => { if (confirm("Cancel this subscription?")) doAction("update", { status: "cancelled" }); }}
+                    onClick={() => { if (confirm("Are you sure you want to cancel this subscription?")) doAction("update", { status: "cancelled" }); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white disabled:opacity-60 transition hover:bg-red-700">
                     <XCircle className="w-3.5 h-3.5" /> Cancel
                   </button>

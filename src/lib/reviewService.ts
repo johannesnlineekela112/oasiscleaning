@@ -2,13 +2,11 @@
  * reviewService.ts
  *
  * Customer reviews after completed bookings.
- * Only booking owner can review; only one review per booking.
- * All validation enforced at DB level (RLS + triggers).
+ * Only the booking owner can submit a review.
+ * One review per booking, enforced by the edge function.
  */
 
 import { supabase } from './supabase';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Review {
   id:             string;
@@ -29,17 +27,21 @@ export async function submitReview(params: {
   review_comment?: string;
   business_id?:   string;
 }): Promise<Review> {
-  // Route through edge function for full server-side enforcement:
-  //   - ownership check, one-per-booking, completion gate, feature flag
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Not authenticated');
+  // Refresh session first to avoid 401 from an expired token
+  const { data: refreshData } = await supabase.auth.refreshSession();
+  const session = refreshData?.session ?? (await supabase.auth.getSession()).data.session;
 
-  const SUPABASE_URL = 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
+  if (!session?.access_token) {
+    throw new Error('Your session has expired. Please sign in again and try.');
+  }
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
   const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-review`, {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
       'Authorization': `Bearer ${session.access_token}`,
+      'apikey':        import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
     },
     body: JSON.stringify({
       booking_id:     params.booking_id,
@@ -49,9 +51,28 @@ export async function submitReview(params: {
   });
 
   const body = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    throw new Error(body.error ?? `Failed to submit review (${res.status})`);
+    // Map technical errors to simple human messages
+    const raw: string = body.error ?? '';
+    if (res.status === 401) {
+      throw new Error('Your session has expired. Please sign in again and try.');
+    }
+    if (raw.includes('completed')) {
+      throw new Error('You can only review a job that has been completed.');
+    }
+    if (raw.includes('own')) {
+      throw new Error('You can only review your own bookings.');
+    }
+    if (raw.includes('already')) {
+      throw new Error('You have already submitted a review for this booking.');
+    }
+    if (raw.includes('eligible')) {
+      throw new Error('This booking is not available for review.');
+    }
+    throw new Error('We could not send your review. Please try again.');
   }
+
   return body.review as Review;
 }
 

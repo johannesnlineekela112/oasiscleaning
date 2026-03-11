@@ -469,13 +469,19 @@ const EmployeeDashboard = () => {
   const handleComplete = async (id: string) => {
     setCompleteError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Refresh session first to avoid Invalid JWT error on stale sessions
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const session = refreshData?.session ?? (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token) {
+        setCompleteError('Your session has expired. Please sign in again.');
+        return;
+      }
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/complete-booking`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session?.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
@@ -485,15 +491,19 @@ const EmployeeDashboard = () => {
       const body = await res.json();
       if (!res.ok) {
         if (body.error === 'PHOTO_GATE') {
-          setCompleteError(`Please upload at least ${body.required} photo(s) before marking complete. You have ${body.photo_count} uploaded.`);
+          setCompleteError(`Please upload at least ${body.required} photo${body.required !== 1 ? 's' : ''} before marking this job complete. You have ${body.photo_count} uploaded.`);
+        } else if (res.status === 401) {
+          setCompleteError('Your session has expired. Please sign in again.');
+        } else if (res.status === 403) {
+          setCompleteError('You are not assigned to this job.');
         } else {
-          setCompleteError(body.message ?? body.error ?? 'Failed to complete booking.');
+          setCompleteError('We could not complete this job. Please try again.');
         }
         return;
       }
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "completed" as const } : b));
     } catch (err: any) {
-      setCompleteError('Network error. Please try again.');
+      setCompleteError('We could not reach the server. Please check your connection and try again.');
     }
   };
 

@@ -31,7 +31,7 @@ export interface CustomerSubscription {
   renewal_date:               string;
   allowed_bookings_per_month: number;
   used_bookings_count:        number;
-  status:                     'active' | 'paused' | 'expired' | 'cancelled';
+  status:                     'pending_payment' | 'pending_admin_approval' | 'active' | 'paused' | 'expired' | 'cancelled';
   notes:                      string | null;
   created_at:                 string;
   // Joined
@@ -131,12 +131,49 @@ export async function createCustomerSubscription(params: {
       start_date:  new Date().toISOString().slice(0, 10),
       renewal_date: params.renewal_date,
       allowed_bookings_per_month: params.allowed_bookings_per_month,
-      status:      'active',
+      status:      'pending_payment', // Admin must approve upfront payment before activating
       notes:       params.notes ?? null,
     })
     .select()
     .single();
   if (error) throw error;
+  return data as CustomerSubscription;
+}
+
+// ─── Customer: request a plan ────────────────────────────────────────────────
+
+export async function requestSubscription(params: {
+  plan_id:    string;
+  business_id?: string;
+}): Promise<CustomerSubscription> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Please sign in to request a subscription.');
+
+  const plan = await supabase
+    .from('subscription_plans')
+    .select('allowed_bookings_per_month')
+    .eq('id', params.plan_id)
+    .single();
+  if (plan.error) throw new Error('We could not find that plan. Please try again.');
+
+  const renewalDate = new Date();
+  renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+  const { data, error } = await supabase
+    .from('customer_subscriptions')
+    .insert({
+      business_id:                params.business_id ?? '00000000-0000-0000-0000-000000000001',
+      customer_id:                user.id,
+      plan_id:                    params.plan_id,
+      start_date:                 new Date().toISOString().slice(0, 10),
+      renewal_date:               renewalDate.toISOString().slice(0, 10),
+      allowed_bookings_per_month: plan.data!.allowed_bookings_per_month,
+      status:                     'pending_payment',
+      requested_at:               new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (error) throw new Error('We could not submit your request. Please try again.');
   return data as CustomerSubscription;
 }
 

@@ -98,6 +98,8 @@ const AdminDashboard = () => {
   const [histExportStart,   setHistExportStart]   = useState("");
   const [histExportEnd,     setHistExportEnd]     = useState("");
   const [histExportLoading, setHistExportLoading] = useState<"csv"|"xlsx"|false>(false);
+  const [histFilterStart,   setHistFilterStart]   = useState("");
+  const [histFilterEnd,     setHistFilterEnd]     = useState("");
   const [commExportStart,   setCommExportStart]   = useState("");
   const [commExportEnd,     setCommExportEnd]     = useState("");
   const [commExportLoading, setCommExportLoading] = useState<"csv"|"xlsx"|false>(false);
@@ -468,11 +470,19 @@ const AdminDashboard = () => {
     b.status !== "cancelled" &&
     b.status !== "late_cancelled"
   );
-  // History: completed bookings only
-  const completedBookingsHist = bookings.filter(b => b.status === "completed");
-  const cancelledBookingsHist = bookings.filter(b =>
-    b.status === "cancelled" || b.status === "late_cancelled"
-  );
+  // History: filter by date range if set
+  const completedBookingsHist = bookings.filter(b => {
+    if (b.status !== "completed") return false;
+    if (histFilterStart && b.booking_date < histFilterStart) return false;
+    if (histFilterEnd   && b.booking_date > histFilterEnd)   return false;
+    return true;
+  });
+  const cancelledBookingsHist = bookings.filter(b => {
+    if (b.status !== "cancelled" && b.status !== "late_cancelled") return false;
+    if (histFilterStart && b.booking_date < histFilterStart) return false;
+    if (histFilterEnd   && b.booking_date > histFilterEnd)   return false;
+    return true;
+  });
   const historyBookings = completedBookingsHist;
 
   const displayed =
@@ -1004,7 +1014,7 @@ Expand the booking and upload photos using the camera section, then try again.`)
             {tab === "history" && (
               <div className="mb-5 space-y-4">
                 {/* Sub-tab selector */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {([
                     { key: "completed",    label: `Completed (${completedBookingsHist.length})`,    color: "bg-green-600 text-white", inactive: "bg-card text-foreground/70 border border-border hover:border-green-400" },
                     { key: "cancellations",label: `Cancelled (${cancelledBookingsHist.length})`,    color: "bg-red-600 text-white",   inactive: "bg-card text-foreground/70 border border-border hover:border-red-400" },
@@ -1014,6 +1024,29 @@ Expand the booking and upload photos using the camera section, then try again.`)
                       {st.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Date range filter */}
+                <div className="bg-card rounded-xl border border-border p-3 flex items-end gap-3 flex-wrap">
+                  <div>
+                    <label className="text-xs font-semibold text-foreground/70 block mb-1">From</label>
+                    <input type="date" value={histFilterStart} onChange={e => setHistFilterStart(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-foreground/70 block mb-1">To</label>
+                    <input type="date" value={histFilterEnd} onChange={e => setHistFilterEnd(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30" />
+                  </div>
+                  {(histFilterStart || histFilterEnd) && (
+                    <button onClick={() => { setHistFilterStart(""); setHistFilterEnd(""); }}
+                      className="px-3 py-2 rounded-lg border border-border text-sm font-semibold text-foreground/70 hover:bg-muted transition">
+                      Clear filter
+                    </button>
+                  )}
+                  {(!histFilterStart && !histFilterEnd) && (
+                    <p className="text-xs text-foreground/50 self-center">Showing all history. Set a date range to filter.</p>
+                  )}
                 </div>
 
                 {/* Context line */}
