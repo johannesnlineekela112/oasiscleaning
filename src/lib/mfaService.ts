@@ -79,7 +79,7 @@ export async function enrollTOTP(friendlyName = 'Oasis Admin'): Promise<TOTPEnro
   return {
     factorId: data.id,
     // Supabase returns the QR as a raw SVG string; turn it into a data URL
-    qrCode:   `data:image/svg+xml;utf8,${encodeURIComponent(data.totp.qr_code)}`,
+    qrCode:   `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(data.totp.qr_code)))}`,
     secret:   data.totp.secret,
     uri:      data.totp.uri,
   };

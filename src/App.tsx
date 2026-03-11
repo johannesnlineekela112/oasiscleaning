@@ -82,6 +82,7 @@ const App = () => (
               <RouteGuard
                 requiredRoles={["admin", "super_admin"]}
                 loginPath="/admin"
+                requireMFA
               >
                 <AdminDashboard />
               </RouteGuard>
@@ -96,6 +97,7 @@ const App = () => (
               <RouteGuard
                 requiredRoles={["super_admin"]}
                 loginPath="/admin"
+                requireMFA
               >
                 <SuperAdminDashboard />
               </RouteGuard>

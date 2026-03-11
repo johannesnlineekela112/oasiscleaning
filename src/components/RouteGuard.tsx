@@ -9,17 +9,9 @@
  *  3. Show a loading spinner while checking
  *  4. Redirect unauthorized users to the correct destination
  *
- * Usage in App.tsx:
- *   <Route path="/admin/dashboard" element={
- *     <RouteGuard requiredRoles={['admin', 'super_admin']} loginPath="/admin">
- *       <AdminDashboard />
- *     </RouteGuard>
- *   } />
- *
- * The page-level auth checks in AdminDashboard, EmployeeDashboard, and
- * UserDashboard still exist as a defence-in-depth fallback. The RouteGuard
- * provides a unified loading state and prevents the page from mounting at all
- * if the session is invalid.
+ * MFA enforcement only applies to exclusively-admin routes (admin/dashboard,
+ * /platform). Mixed routes like /dashboard that also permit customers/employees
+ * do NOT require MFA — otherwise customers would be sent to the admin login.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -29,22 +21,24 @@ import { getSessionUser, getUserProfile } from '@/lib/authService';
 import { getAAL } from '@/lib/mfaService';
 import { type AppRole, getRoleHomeRoute } from '@/lib/permissions';
 
-const ADMIN_ROLES: AppRole[] = ['admin', 'super_admin'];
+const ADMIN_ONLY_ROLES: AppRole[] = ['admin', 'super_admin'];
 
 interface RouteGuardProps {
-  /** Roles that are permitted on this route. */
   requiredRoles: AppRole[];
-  /**
-   * Where to send unauthenticated users (no session).
-   * Defaults to '/auth'.
-   */
   loginPath?: string;
+  /** When true, ALL users on this route must have aal2 (admin-only routes). */
+  requireMFA?: boolean;
   children: ReactNode;
 }
 
 type GuardState = 'checking' | 'authorized' | 'redirecting';
 
-export function RouteGuard({ requiredRoles, loginPath = '/auth', children }: RouteGuardProps) {
+export function RouteGuard({
+  requiredRoles,
+  loginPath = '/auth',
+  requireMFA,
+  children,
+}: RouteGuardProps) {
   const [state, setState] = useState<GuardState>('checking');
   const navigate = useNavigate();
 
@@ -73,13 +67,15 @@ export function RouteGuard({ requiredRoles, loginPath = '/auth', children }: Rou
         return;
       }
 
-      // ── MFA enforcement for admin routes ────────────────────────────────
-      // Admin and super_admin users MUST have aal2 to access protected routes.
-      // If they somehow arrive here with only aal1 (e.g. direct URL navigation,
-      // stale tab, or expired MFA session), redirect them back to the admin
-      // login page to complete the MFA challenge.
-      const isAdminRoute = requiredRoles.some(r => ADMIN_ROLES.includes(r));
-      if (isAdminRoute) {
+      // ── MFA enforcement ────────────────────────────────────────────────────
+      // Only enforce MFA on routes that are EXCLUSIVELY for admin/super_admin.
+      // Mixed routes (/dashboard, /employee) must NOT require MFA — customers
+      // and employees don't have TOTP enrolled.
+      const isAdminOnlyRoute =
+        requireMFA === true ||
+        requiredRoles.every(r => ADMIN_ONLY_ROLES.includes(r as AppRole));
+
+      if (isAdminOnlyRoute) {
         const aal = await getAAL().catch(() => null);
         if (!aal || aal.currentLevel !== 'aal2') {
           if (!cancelled) {
