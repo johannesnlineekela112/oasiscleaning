@@ -821,7 +821,7 @@ const AdminDashboard = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden car-pattern-bg">
+    <div className="min-h-screen car-pattern-bg">
 
       {/* ── Session guards ───────────────────────────────────────────────── */}
       {/* Re-auth modal — rendered when requireReAuth() is called */}
@@ -874,61 +874,39 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* ── Body: sidebar + content ───────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 relative z-10">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10">
 
-        {/* ── Left sidebar ───────────────────────────────────────────── */}
-        <aside className="w-16 sm:w-56 shrink-0 flex flex-col bg-card border-r border-border overflow-y-auto">
-          {/* Stats mini-cards */}
-          <div className="p-2 sm:p-3 space-y-1.5 border-b border-border/60">
-            {[
-              { label: "Bookings", value: stats.total,     icon: Calendar,   color: "text-primary" },
-              { label: "Pending",  value: stats.pending,   icon: Clock,      color: "text-orange-500" },
-              { label: "Active",   value: stats.confirmed, icon: CheckCircle,color: "text-blue-500" },
-              { label: "Revenue",  value: `N$${stats.revenue}`, icon: DollarSign, color: "text-green-600" },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-2 px-1 sm:px-2 py-1.5 rounded-lg bg-muted/40">
-                <s.icon className={`w-3.5 h-3.5 shrink-0 ${s.color}`} />
-                <div className="hidden sm:block min-w-0">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">{s.label}</p>
-                  <p className="text-sm font-display font-bold leading-tight">{s.value}</p>
-                </div>
-                <p className="sm:hidden text-xs font-bold truncate">{s.value}</p>
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: "Total Bookings", value: stats.total,     icon: Calendar,   color: "text-primary" },
+            { label: "Pending",        value: stats.pending,   icon: Clock,      color: "text-orange-dark" },
+            { label: "Active",         value: stats.confirmed, icon: CheckCircle,color: "text-info" },
+            { label: "Revenue (N$)",   value: stats.revenue,   icon: DollarSign, color: "text-success" },
+          ].map(s => (
+            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl shadow-card p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <s.icon className={`w-4 h-4 ${s.color}`} />
+                <span className="text-xs font-bold text-foreground/70 uppercase tracking-wider">{s.label}</span>
               </div>
-            ))}
-          </div>
+              <p className="text-2xl font-display font-bold">{s.value}</p>
+            </motion.div>
+          ))}
+        </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-1.5 sm:p-2 space-y-0.5">
-            {TABS.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`w-full flex items-center gap-2.5 px-2 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-left ${
-                  tab === t.key
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <t.icon className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline truncate">{t.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* Refresh + logout at bottom */}
-          <div className="p-2 border-t border-border/60 space-y-1">
-            <button onClick={fetchAll}
-              className="w-full flex items-center gap-2 px-2 py-2 rounded-xl text-xs text-muted-foreground hover:bg-muted transition">
-              <RefreshCw className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
+        {/* Tab bar */}
+        <div className="sticky top-[52px] z-40 flex items-center gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-card rounded-xl p-1 sm:p-1.5 shadow-card overflow-x-auto scrollbar-none">
+          {TABS.map(t => (
+            <button
+              key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition flex-1 justify-center whitespace-nowrap ${
+                tab === t.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <t.icon className="w-4 h-4" /> <span className="hidden sm:inline">{t.label}</span>
             </button>
-          </div>
-        </aside>
-
-        {/* ── Main content area ───────────────────────────────────────── */}
-        <main className="flex-1 min-w-0 overflow-y-auto admin-tab-bg">
-          <div className="max-w-5xl mx-auto px-4 sm:px-5 py-5 sm:py-6">
+          ))}
+        </div>
 
         {/* ══════════════════ BOOKINGS / HISTORY TAB ══════════════════ */}
         {(tab === "bookings" || tab === "history") && (
@@ -3694,9 +3672,7 @@ export default AdminDashboar
         </div>
       )}
 
-          </div> {/* end max-w-5xl content */}
-        </main>
-      </div> {/* end flex body */}
+      </div>
 
       <CopyrightFooter />
     </div>
