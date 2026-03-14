@@ -18,7 +18,7 @@ import {
   LogOut, Calendar, Clock, CreditCard, Loader2, ArrowLeft,
   Edit2, AlertTriangle, CheckCircle, XCircle, MapPin, Save, Lock,
   Star, Pencil, Gift, Award, TrendingUp, Sparkles, RefreshCw,
-  ChevronRight, Zap, Shield, Camera, ImageIcon, User, Phone, Mail,
+  ChevronRight, Zap, Shield, Camera, ImageIcon, User, Phone, Mail, Plus,
 } from "lucide-react";
 import {
   Booking, getUserBookings, getEditability,
@@ -38,7 +38,7 @@ import {
 } from "@/lib/imageService";
 import { getSessionUser, logout, getUserProfile, updateUserProfile, UserProfile } from "@/lib/authService";
 import { supabase } from "@/lib/supabase";
-import { getBoolSetting, SETTINGS_KEYS } from "@/lib/settingsService";
+import { getBoolSetting, SETTINGS_KEYS, getTimeslots, type TimeSlotSetting } from "@/lib/settingsService";
 import MapPicker, { LocationResult } from "@/components/MapPicker";
 import { useNavigate, Link } from "react-router-dom";
 import logo from "@/assets/logo-car.png";
@@ -72,9 +72,9 @@ const LockPill = ({ label }: { label: string }) => (
 );
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
-interface EditModalProps { booking: Booking; onClose: () => void; onSaved: (u: Booking) => void; }
+interface EditModalProps { booking: Booking; onClose: () => void; onSaved: (u: Booking) => void; dynamicSlots?: TimeSlotSetting[] | null; }
 
-const EditModal = ({ booking, onClose, onSaved }: EditModalProps) => {
+const EditModal = ({ booking, onClose, onSaved, dynamicSlots }: EditModalProps) => {
   const flags    = getEditability(booking);
   const origDate = booking.booking_date || booking.date || "";
   const origSlot = booking.time_slot    || booking.time || "";
@@ -162,7 +162,7 @@ const EditModal = ({ booking, onClose, onSaved }: EditModalProps) => {
                 <select value={timeSlot} disabled={!flags.canEditSchedule || !date} onChange={e => setTimeSlot(e.target.value)}
                   className={`w-full px-3 py-2.5 rounded-xl border text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-secondary/40 transition ${!flags.canEditSchedule ? "opacity-50 cursor-not-allowed border-border/50" : "border-border"}`}>
                   <option value="" disabled>{!date ? "Pick date first" : "— Select —"}</option>
-                  {TIME_SLOTS.map(s => {
+                  {(dynamicSlots ?? TIME_SLOTS).map(s => {
                     const booked = bookedSlots.includes(s.value), past = pastSlots.includes(s.value);
                     return <option key={s.value} value={s.value} disabled={booked || past}>{s.label}{booked ? " (Full)" : past ? " (Past)" : ""}</option>;
                   })}
@@ -764,6 +764,7 @@ const UserDashboard = () => {
   const [profile,      setProfile]      = useState<UserProfile | null>(null);
   const [userId,       setUserId]       = useState<string | null>(null);
   const [activeTab,    setActiveTab]    = useState<DashTab>("bookings");
+  const [dynamicSlots, setDynamicSlots] = useState<TimeSlotSetting[] | null>(null);
   const [showAbout,    setShowAbout]    = useState(false);
   const [referralEnabled, setReferralEnabled] = useState(true);
   const [aboutTab,     setAboutTab]     = useState<"about"|"team"|"tc">("about");
@@ -775,6 +776,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    getTimeslots().then(setDynamicSlots).catch(() => {});
     getSessionUser().then(async (user) => {
       if (!user) { navigate("/auth"); return; }
       setUserId(user.id);
@@ -867,7 +869,7 @@ const UserDashboard = () => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {editTarget && <EditModal key={editTarget.id} booking={editTarget} onClose={() => setEditTarget(null)} onSaved={handleSaved} />}
+        {editTarget && <EditModal key={editTarget.id} booking={editTarget} onClose={() => setEditTarget(null)} onSaved={handleSaved} dynamicSlots={dynamicSlots} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -950,20 +952,89 @@ const UserDashboard = () => {
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="w-8 h-8 animate-spin text-secondary" />
                 </div>
-              ) : bookings.length === 0 ? (
-                <div className="text-center py-20 text-muted-foreground">
-                  <div className="w-16 h-12 mx-auto mb-4 flex items-center justify-center opacity-50">
-                    <img src={logo} alt="" className="w-full h-full object-contain" />
-                  </div>
-                  <p className="font-semibold">No bookings yet</p>
-                  <p className="text-sm mb-6">Book your first wash to start earning loyalty points.</p>
-                  <Link to="/" className="bg-secondary text-secondary-foreground px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition">
-                    Book Now
-                  </Link>
-                </div>
               ) : (
-                <div className="space-y-4">
-                  {bookings.map((b) => {
+                <>
+                {/* ── Quick Actions ──────────────────────────────────── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+                  {[
+                    { label: "Book a Wash",  icon: Plus,    to: "/",          primary: true },
+                    { label: "Loyalty",       icon: Award,   action: () => setActiveTab("loyalty"), primary: false },
+                    { label: "Subscription",  icon: Zap,     action: () => setActiveTab("loyalty"), primary: false },
+                    { label: "Profile",       icon: User,    action: () => setActiveTab("profile"),  primary: false },
+                  ].map(a => (
+                    a.to ? (
+                      <Link key={a.label} to={a.to}
+                        className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl text-sm font-semibold transition text-center border ${a.primary ? "bg-secondary text-secondary-foreground border-secondary/50 hover:opacity-90" : "bg-card text-foreground border-border hover:border-secondary/40 hover:bg-secondary/5"}`}>
+                        <a.icon className="w-4 h-4" /> {a.label}
+                      </Link>
+                    ) : (
+                      <button key={a.label} onClick={a.action}
+                        className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl text-sm font-semibold bg-card text-foreground border border-border hover:border-secondary/40 hover:bg-secondary/5 transition text-center">
+                        <a.icon className="w-4 h-4" /> {a.label}
+                      </button>
+                    )
+                  ))}
+                </div>
+
+                {bookings.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <div className="w-16 h-12 mx-auto mb-4 flex items-center justify-center opacity-40">
+                      <img src={logo} alt="" className="w-full h-full object-contain" />
+                    </div>
+                    <p className="font-semibold">No bookings yet</p>
+                    <p className="text-sm mb-5">Your first wash is just a tap away.</p>
+                    <Link to="/" className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-6 py-2.5 rounded-lg font-semibold hover:opacity-90 transition text-sm">
+                      <Plus className="w-4 h-4" /> Book Now
+                    </Link>
+                  </div>
+                ) : (() => {
+                  const today = todayInNamibia();
+                  const active = bookings.filter(b => !["completed","cancelled","late_cancelled"].includes(b.status));
+                  const completed = bookings.filter(b => ["completed","cancelled","late_cancelled"].includes(b.status));
+                  const nextBooking = active.sort((a,b2) => ((a.date||a.booking_date||"") < (b2.date||b2.booking_date||"") ? -1 : 1))[0];
+
+                  return (
+                    <>
+                    {/* ── Next booking hero ── */}
+                    {nextBooking && (() => {
+                      const cfg = STATUS_CONFIG[nextBooking.status] || STATUS_CONFIG.pending;
+                      const Icon = cfg.icon;
+                      return (
+                        <div className="bg-card rounded-2xl border border-secondary/20 shadow-card overflow-hidden mb-5">
+                          <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-border/60">
+                            <div>
+                              <p className="text-xs font-bold text-secondary uppercase tracking-wider">Next Booking</p>
+                              <p className="font-display font-bold text-lg leading-tight mt-0.5">{nextBooking.date || nextBooking.booking_date}</p>
+                              <p className="text-sm text-muted-foreground">{nextBooking.time || nextBooking.time_slot} · {nextBooking.service_type}</p>
+                            </div>
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${cfg.color}`}>
+                              <Icon className="w-3.5 h-3.5" /> {cfg.label}
+                            </span>
+                          </div>
+                          <div className="px-5 py-3 flex gap-3 flex-wrap">
+                            {!["completed","cancelled","late_cancelled"].includes(nextBooking.status) && (
+                              <button onClick={() => setEditTarget(nextBooking)}
+                                className="flex items-center gap-1.5 text-xs font-semibold bg-secondary/10 text-secondary hover:bg-secondary/20 px-3 py-1.5 rounded-lg transition">
+                                <Pencil className="w-3.5 h-3.5" /> Edit Booking
+                              </button>
+                            )}
+                            <Link to="/" className="flex items-center gap-1.5 text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg transition">
+                              <Plus className="w-3.5 h-3.5" /> Book Again
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── Active / upcoming section ── */}
+                    {active.length > 0 && (
+                      <div className="mb-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="font-bold text-sm text-foreground">Active & Upcoming</h3>
+                          <span className="text-xs bg-secondary/10 text-secondary font-bold px-2 py-0.5 rounded-full">{active.length}</span>
+                        </div>
+                        <div className="space-y-3">
+                          {active.map((b) => {
                     const cfg        = STATUS_CONFIG[b.status] || STATUS_CONFIG.pending;
                     const flags      = getEditability(b);
                     const StatusIcon = cfg.icon;
@@ -1097,8 +1168,43 @@ const UserDashboard = () => {
                   })}
                 </div>
               )}
-            </motion.div>
-          )}
+
+              {/* ── Booking history ── */}
+              {completed.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="font-bold text-sm text-foreground">History</h3>
+                    <span className="text-xs bg-muted text-muted-foreground font-bold px-2 py-0.5 rounded-full">{completed.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {completed.slice(0, 8).map(b => {
+                      const cfg = STATUS_CONFIG[b.status] || STATUS_CONFIG.completed;
+                      const Icon = cfg.icon;
+                      return (
+                        <div key={b.id} className="bg-card rounded-xl border border-border/60 px-4 py-3 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{b.date || b.booking_date}</p>
+                            <p className="text-xs text-muted-foreground">{b.service_type} · {b.time || b.time_slot}</p>
+                            {b.is_free_wash && <span className="text-xs text-green-600 font-semibold">Free Wash</span>}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${cfg.color}`}>
+                              <Icon className="w-3 h-3" /> {cfg.label}
+                            </span>
+                            <span className="text-sm font-bold text-secondary">{b.is_free_wash ? "FREE" : `N$ ${b.totalPrice || b.price}`}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {completed.length > 8 && (
+                      <p className="text-center text-xs text-muted-foreground py-2">+{completed.length - 8} more in history</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+            );
+          })()}
         </AnimatePresence>
       </div>
       <CopyrightFooter />

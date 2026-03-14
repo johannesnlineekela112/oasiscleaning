@@ -1063,7 +1063,7 @@ Expand the booking and upload photos using the camera section, then try again.`)
                       { label: "Subscriptions", icon: Zap, tab: "subscriptions" as Tab },
                       { label: "Staff", icon: Users, tab: "employees" as Tab },
                       { label: "Analytics", icon: BarChart2, tab: "analytics" as Tab },
-                      { label: "Services", icon: Settings, tab: "settings" as Tab },
+                      { label: "Settings", icon: Settings, tab: "settings" as Tab },
                     ].map(a => (
                       <button key={a.tab} onClick={() => setTab(a.tab)}
                         className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-muted/50 hover:bg-secondary/10 hover:text-secondary transition text-sm font-medium text-left">
@@ -1708,7 +1708,7 @@ Expand the booking and upload photos using the camera section, then try again.`)
           </div>
         )}
 
-        {/* ══════════════════ SERVICES / SETTINGS TAB ══════════════════ */}
+        {/* ══════════════════ SETTINGS TAB ══════════════════ */}
         {tab === "settings" && (
           <div className="space-y-6">
             <div className="pb-4 border-b border-border">

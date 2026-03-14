@@ -48,7 +48,7 @@ const NAV_ITEMS: { key: Tab; label: string; icon: any; group?: string }[] = [
   // ── Finance
   { key: "payouts",       label: "Payouts",        icon: ReceiptText,   group: "Finance" },
   // ── Platform
-  { key: "settings",      label: "Services",       icon: Settings,      group: "Platform" },
+  { key: "settings",      label: "Settings",       icon: Settings,      group: "Platform" },
   { key: "ads",           label: "Marketing",      icon: Megaphone,     group: "Platform" },
   { key: "about",         label: "About & Legal",  icon: BookOpen,      group: "Platform" },
   // ── System

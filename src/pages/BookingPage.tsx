@@ -54,13 +54,16 @@ const TimeSlotDropdown = ({
   bookedSlots,
   pastSlots,
   disabled,
+  slots: propSlots,
 }: {
   value:       string;
   onChange:    (v: string) => void;
   bookedSlots: string[];
-  pastSlots:   string[];        // slots disabled due to time — computed by parent
+  pastSlots:   string[];
   disabled?:   boolean;
+  slots?:      import("@/lib/settingsService").TimeSlotSetting[] | null;
 }) => {
+  const displaySlots = propSlots ?? TIME_SLOTS;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -72,7 +75,7 @@ const TimeSlotDropdown = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const selected    = TIME_SLOTS.find(s => s.value === value);
+  const selected    = displaySlots.find(s => s.value === value);
   // If the currently-selected slot has since become past, show a warning in the trigger
   const selectedIsPast = !!selected && pastSlots.includes(selected.value);
 
@@ -132,7 +135,7 @@ const TimeSlotDropdown = ({
             transition={{ duration: 0.15 }}
             className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
           >
-            {(dynamicSlots ?? TIME_SLOTS).map((slot) => {
+            {displaySlots.map((slot) => {
               const booked = bookedSlots.includes(slot.value);
               const past   = pastSlots.includes(slot.value);
               // A slot is unavailable if it is booked OR past
@@ -840,6 +843,7 @@ const BookingPage = () => {
                 <TimeSlotDropdown
                   value={form.time}
                   onChange={(t) => setForm({ ...form, time: t })}
+                  slots={dynamicSlots}
                   bookedSlots={bookedSlots}
                   pastSlots={pastSlots}
                   disabled={!form.date}

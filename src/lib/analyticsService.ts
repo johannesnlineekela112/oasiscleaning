@@ -75,19 +75,13 @@ export interface OverviewKPIs {
 
 // ─── Internal helper ──────────────────────────────────────────────────────────
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+const SUPABASE_URL = 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
 
 async function callAnalytics(params: Record<string, string>): Promise<any> {
-  // Proactively refresh the session before calling analytics to avoid 401s
-  // on idle tabs where the access token has expired.
+  // Proactively refresh to avoid stale-token 401s
   await supabase.auth.refreshSession().catch(() => {});
-  const { data: sessionData } = await supabase.auth.getSession();
-  const session = sessionData?.session;
-
-  if (!session?.access_token) {
-    throw new Error('Please sign in again to view your dashboard.');
-  }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Please sign in again to view analytics.');
 
   const qs = new URLSearchParams(params).toString();
   const res = await fetch(
@@ -95,19 +89,13 @@ async function callAnalytics(params: Record<string, string>): Promise<any> {
     {
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
-        'apikey': SUPABASE_ANON_KEY,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ymtwd2Rua2hzYmV5Z255bmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTU1ODcsImV4cCI6MjA4NjIzMTU4N30.reLOBC1F2zbMgAD7Z6I6z_D9s37OhDC4b4Gfr-Ltig8',
       },
     },
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    if (res.status === 401) {
-      throw new Error('Please sign in again to view your dashboard.');
-    }
-    if (res.status === 403) {
-      throw new Error('You do not have permission to view analytics.');
-    }
-    throw new Error(err.error ?? 'We could not load your analytics. Please try again.');
+    throw new Error(err.error ?? `Analytics fetch failed (${res.status})`);
   }
   const body = await res.json();
   return body.data;
