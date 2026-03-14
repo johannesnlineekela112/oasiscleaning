@@ -1206,6 +1206,9 @@ const UserDashboard = () => {
             </>
             );
           })()}
+                </>
+              )}
+            </motion.div>
         </AnimatePresence>
       </div>
       <CopyrightFooter />
