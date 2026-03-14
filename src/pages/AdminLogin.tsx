@@ -28,7 +28,7 @@ import { auditAuthEvent, getClientMeta } from "@/lib/auditService";
 import { MFAChallenge } from "@/components/auth/MFAChallenge";
 import { MFAEnroll }    from "@/components/auth/MFAEnroll";
 import { useNavigate, Link } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo-brand.png";
 
 type Step = "credentials" | "mfa_challenge" | "mfa_enroll";
 
@@ -69,7 +69,7 @@ const AdminLogin = () => {
           { reason: "non_admin_role", role: profile?.role }, meta);
         // Sign out the non-admin so they don't hold a dangling session
         await logout();
-        setError("Access denied. This account does not have admin privileges.");
+        setError("Access denied — this account does not have admin privileges.");
         return;
       }
 
@@ -125,10 +125,7 @@ const AdminLogin = () => {
     recordAdminLoginTime();
     await auditAuthEvent(uid, "auth.admin_login",
       undefined, { ...getClientMeta(), actorEmail: email });
-    // Route super_admin to the platform console, admins to the regular dashboard
-    const { getUserProfile } = await import("@/lib/authService");
-    const profile = await getUserProfile(uid).catch(() => null);
-    navigate(profile?.role === "super_admin" ? "/platform" : "/admin/dashboard");
+    navigate("/admin/dashboard");
   };
 
   // ── Cancel MFA → back to credentials (sign out first) ────────────────────
@@ -154,9 +151,12 @@ const AdminLogin = () => {
             {/* Logo block */}
             <div className="text-center mb-8">
               <button onClick={() => window.location.reload()} className="mx-auto block group">
-                <div className="bg-[#0a1628] rounded-2xl px-6 py-4 inline-block shadow-xl border border-white/10 group-hover:shadow-orange-500/20 transition-shadow mb-3">
-                  <img src={logo} alt="Oasis Pure Cleaning CC" className="h-32 w-auto object-contain drop-shadow-2xl" />
-                </div>
+                <img
+                  src={logo}
+                  alt="Oasis Pure Cleaning CC"
+                  className="h-36 sm:h-44 w-auto max-w-[300px] object-contain mx-auto mb-3"
+                  style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.18))" }}
+                />
               </button>
               <h2 className="font-display text-2xl font-bold">Admin Portal</h2>
               <p className="text-sm text-muted-foreground mt-1">Restricted access — authorised staff only</p>

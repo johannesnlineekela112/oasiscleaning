@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { onAuthChange, getSessionUser, getUserProfile, logout } from "@/lib/authService";
 import type { User } from "@supabase/supabase-js";
 import { Link, useNavigate } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo-car.png";
 import WinnyChatbot from "@/components/WinnyChatbot";
 import { guardAction, recordFailure, isEmailVerified } from "@/lib/botProtection";
 import PaymentPanel, { type PaymentMethod as PMethod, type PaymentSelection } from "@/components/PaymentPanel";
@@ -659,9 +659,7 @@ const BookingPage = () => {
       <div className="sticky top-0 z-50">
         <header className="bg-primary py-2.5 px-3 sm:px-6 flex items-center justify-between shadow-lg gap-2">
           <button onClick={() => window.location.reload()} className="flex items-center gap-2 min-w-0 cursor-pointer">
-          <div className="bg-[#0a1628] rounded-xl p-1 flex-shrink-0 flex items-center justify-center">
-            <img src={logo} alt="Oasis" className="h-9 sm:h-12 w-auto object-contain drop-shadow-md" />
-          </div>
+          <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 sm:h-12 w-auto object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
           <div className="min-w-0 hidden sm:block">
             <h1 className="text-primary-foreground font-display font-bold text-base sm:text-lg tracking-tight leading-tight">OASIS PURE CLEANING CC</h1>
             <p className="text-primary-foreground/70 text-xs font-medium tracking-wider uppercase">WE COME, YOU SHINE!</p>
