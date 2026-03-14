@@ -199,6 +199,7 @@ const AuthPage = () => {
 
         {/* ── Main login / signup view ──────────────────────────────────── */}
         {view === "login" && (
+        <>
         <div className="text-center mb-8">
           <button onClick={() => window.location.reload()} className="mx-auto block group">
             <img
@@ -364,6 +365,7 @@ const AuthPage = () => {
         <Link to="/" className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground hover:text-foreground transition">
           <ArrowLeft className="w-4 h-4" /> Back to Booking
         </Link>
+        </>
         )} {/* end view === login */}
       </motion.div>
       </div>{/* end centred card */}
