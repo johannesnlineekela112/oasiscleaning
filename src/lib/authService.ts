@@ -78,7 +78,7 @@ export async function updateUserProfile(
 
 export async function isAdmin(uid: string): Promise<boolean> {
   const profile = await getUserProfile(uid);
-  return profile?.role === "admin";
+  return profile?.role === "admin" || profile?.role === "super_admin";
 }
 
 export async function logout(): Promise<void> {

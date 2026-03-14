@@ -75,7 +75,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string }>
   late_cancelled: { label: "Late Cancellation",   icon: AlertTriangle, color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-500" },
 };
 
-type Tab = "bookings" | "history" | "employees" | "settings" | "payouts" | "about" | "ads" | "loyalty" | "security" | "audit" | "analytics" | "payments" | "subscriptions";
+type Tab = "overview" | "bookings" | "history" | "employees" | "settings" | "payouts" | "about" | "ads" | "loyalty" | "security" | "audit" | "analytics" | "payments" | "subscriptions";
 
 // ─── Empty service form ───────────────────────────────────────────────────────
 const emptyServiceForm = (): Omit<ServiceRow, "id"> => ({
@@ -88,7 +88,7 @@ const AdminDashboard = () => {
   const [staff,       setStaff]       = useState<StaffMember[]>([]);
   const [services,    setServices]    = useState<ServiceRow[]>([]);
   const [loading,     setLoading]     = useState(true);
-  const [tab,         setTab]         = useState<Tab>("bookings");
+  const [tab,         setTab]         = useState<Tab>("overview");
   const [expandedId,  setExpandedId]  = useState<string | null>(null);
   const [bookingSubTab,  setBookingSubTab]  = useState<"today" | "upcoming" | "past">("today");
   const [historySubTab,  setHistorySubTab]  = useState<"completed" | "cancellations">("completed");
@@ -505,6 +505,7 @@ const AdminDashboard = () => {
 
   const stats = {
     total:     bookings.length,
+    today:     bookings.filter(b => (b.booking_date || b.date) === todayInNamibia()).length,
     pending:   bookings.filter(b => b.status === "pending").length,
     confirmed: bookings.filter(b => b.status === "confirmed" || b.status === "in_progress").length,
     revenue:   completedBookingsHist.reduce((s, b) => s + (b.totalPrice || b.price), 0),
@@ -972,6 +973,129 @@ Expand the booking and upload photos using the camera section, then try again.`)
         {/* Main content area — all tab panels render here */}
         <main className="flex-1 min-w-0 overflow-y-auto bg-muted/20 admin-tab-bg">
           <div className="max-w-5xl mx-auto px-4 sm:px-5 py-5 sm:py-6">
+
+        {/* ══════════════════ OVERVIEW TAB ══════════════════ */}
+        {tab === "overview" && (
+          <div className="space-y-5">
+            {/* ── KPI row ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Today's Bookings",  value: stats.today,     icon: Calendar,    color: "text-primary",     bg: "bg-primary/10" },
+                { label: "Active / In Progress", value: stats.confirmed, icon: BadgeCheck, color: "text-info",        bg: "bg-info/10" },
+                { label: "Pending Payment",   value: bookings.filter(b => b.payment_status === "pending_verification").length, icon: CreditCard, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
+                { label: "Revenue Today",     value: `N$ ${bookings.filter(b => { const d = b.booking_date || b.date; return d === todayInNamibia() && b.paid; }).reduce((s, b) => s + (b.totalPrice || b.price || 0), 0).toFixed(0)}`, icon: DollarSign, color: "text-success", bg: "bg-success/10" },
+              ].map(s => (
+                <motion.div key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-card rounded-xl shadow-card p-4 border border-border/60">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${s.bg}`}>
+                    <s.icon className={`w-5 h-5 ${s.color}`} />
+                  </div>
+                  <p className="text-2xl font-display font-bold leading-tight">{s.value}</p>
+                  <p className="text-xs font-semibold text-muted-foreground mt-0.5">{s.label}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* ── Left: Operational summary ── */}
+              <div className="lg:col-span-2 space-y-4">
+
+                {/* Today's bookings summary */}
+                <div className="bg-card rounded-xl shadow-card border border-border/60 overflow-hidden">
+                  <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+                    <h3 className="font-bold text-sm flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-secondary" /> Today's Schedule
+                    </h3>
+                    <button onClick={() => setTab("bookings")}
+                      className="text-xs text-secondary font-semibold hover:underline">View all</button>
+                  </div>
+                  <div className="divide-y divide-border/60">
+                    {bookings.filter(b => (b.booking_date || b.date) === todayInNamibia()).length === 0 ? (
+                      <p className="px-5 py-4 text-sm text-muted-foreground italic">No bookings scheduled for today.</p>
+                    ) : (
+                      bookings.filter(b => (b.booking_date || b.date) === todayInNamibia()).slice(0, 5).map(b => {
+                        const cfg = STATUS_CONFIG[b.status] || STATUS_CONFIG.pending;
+                        return (
+                          <div key={b.id} className="px-5 py-3 flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm truncate">{b.fullName}</p>
+                              <p className="text-xs text-muted-foreground">{b.time || b.time_slot} · {b.service_type}</p>
+                            </div>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Booking counts */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: "Upcoming", value: bookings.filter(b => { const d = b.booking_date || b.date; return d > todayInNamibia() && b.status !== "cancelled" && b.status !== "late_cancelled"; }).length, color: "text-primary", onClick: () => setTab("bookings") },
+                    { label: "Pending Approval", value: bookings.filter(b => b.payment_status === "pending_verification").length, color: "text-orange-600", onClick: () => setTab("payments") },
+                    { label: "Pending Subs", value: 0, color: "text-blue-600", onClick: () => setTab("subscriptions") },
+                  ].map(s => (
+                    <button key={s.label} onClick={s.onClick}
+                      className="bg-card rounded-xl shadow-card border border-border/60 p-4 text-left hover:border-secondary/50 transition">
+                      <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Right: Quick actions + needs attention ── */}
+              <div className="space-y-4">
+                {/* Quick actions */}
+                <div className="bg-card rounded-xl shadow-card border border-border/60">
+                  <div className="px-4 py-3 border-b border-border">
+                    <h3 className="font-bold text-sm flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-secondary" /> Quick Actions
+                    </h3>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    {[
+                      { label: "Bookings", icon: ClipboardList, tab: "bookings" as Tab },
+                      { label: "Payments", icon: CreditCard, tab: "payments" as Tab },
+                      { label: "Subscriptions", icon: Zap, tab: "subscriptions" as Tab },
+                      { label: "Staff", icon: Users, tab: "employees" as Tab },
+                      { label: "Analytics", icon: BarChart2, tab: "analytics" as Tab },
+                      { label: "Services", icon: Settings, tab: "settings" as Tab },
+                    ].map(a => (
+                      <button key={a.tab} onClick={() => setTab(a.tab)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-muted/50 hover:bg-secondary/10 hover:text-secondary transition text-sm font-medium text-left">
+                        <a.icon className="w-4 h-4 shrink-0" /> {a.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recent activity */}
+                <div className="bg-card rounded-xl shadow-card border border-border/60">
+                  <div className="px-4 py-3 border-b border-border">
+                    <h3 className="font-bold text-sm flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-secondary" /> Recent Bookings
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-border/60">
+                    {bookings.slice(0, 4).map(b => (
+                      <div key={b.id} className="px-4 py-2.5">
+                        <p className="text-xs font-semibold truncate">{b.fullName}</p>
+                        <p className="text-[11px] text-muted-foreground">{b.date || b.booking_date} · {b.service_type}</p>
+                      </div>
+                    ))}
+                    {bookings.length === 0 && (
+                      <p className="px-4 py-3 text-xs text-muted-foreground italic">No recent bookings.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ══════════════════ BOOKINGS / HISTORY TAB ══════════════════ */}
         {(tab === "bookings" || tab === "history") && (
@@ -2533,8 +2657,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
                 </div>
               </>
             )}
-          </motion.div>
-        )}
 
 
             {/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
@@ -2649,6 +2771,9 @@ Expand the booking and upload photos using the camera section, then try again.`)
                 )}
               </div>
             </div>
+
+          </motion.div>
+        )}
 
       {/* ══════════════════ LOYALTY TAB ══════════════════ */}
       {/* Always mounted after first open to prevent content flash on re-visit */}

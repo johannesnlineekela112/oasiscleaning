@@ -10,11 +10,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart2, ClipboardList, History, CreditCard, Zap, Award,
   Users, Settings, ReceiptText, BookOpen, Megaphone, ShieldCheck,
-  FileText, X, Calendar, Clock, DollarSign, CheckCircle,
+  FileText, X, Calendar, Clock, DollarSign, CheckCircle, LayoutDashboard,
 } from "lucide-react";
 
 type Tab =
-  | "analytics" | "bookings" | "history" | "payments"
+  | "overview" | "analytics" | "bookings" | "history" | "payments"
   | "subscriptions" | "loyalty" | "employees" | "settings"
   | "payouts" | "about" | "ads" | "security" | "audit";
 
@@ -35,6 +35,7 @@ interface AdminSidebarProps {
 
 const NAV_ITEMS: { key: Tab; label: string; icon: any; group?: string }[] = [
   // ── Overview
+  { key: "overview",      label: "Overview",      icon: LayoutDashboard, group: "Overview" },
   { key: "analytics",     label: "Analytics",     icon: BarChart2,     group: "Overview" },
   // ── Operations
   { key: "bookings",      label: "Bookings",       icon: ClipboardList, group: "Operations" },

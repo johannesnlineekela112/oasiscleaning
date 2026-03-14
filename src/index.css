@@ -137,14 +137,15 @@
     background-image: url('/car-pattern.png');
     background-repeat: repeat;
     background-size: 300px 300px;
-    background-position: center;
+    background-position: center top;
+    background-attachment: fixed; /* keeps pattern fixed during scroll — no desync */
   }
 
   .car-pattern-bg::before {
     content: '';
-    position: fixed;
+    position: fixed;   /* matches background-attachment:fixed — stays in sync */
     inset: 0;
-    background: hsl(var(--background) / 0.92);
+    background: hsl(var(--background) / 0.88); /* slightly more visible (was 0.92) */
     pointer-events: none;
     z-index: 0;
   }

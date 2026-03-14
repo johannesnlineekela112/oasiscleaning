@@ -272,17 +272,6 @@ export default function CookieBanner({ forceShowManage = false, onClose }: { for
         )}
       </AnimatePresence>
 
-      {/* ── Persistent "Manage cookies" trigger in footer ───────────────── */}
-      {status !== "pending" && !showManage && (
-        <button
-          onClick={() => setShowManage(true)}
-          className="fixed bottom-3 left-3 z-[800] flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-card border border-border shadow-md hover:shadow-lg transition text-muted-foreground hover:text-foreground"
-          title="Manage cookie preferences"
-        >
-          <Cookie className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Cookies</span>
-        </button>
-      )}
     </>
   );
 }
