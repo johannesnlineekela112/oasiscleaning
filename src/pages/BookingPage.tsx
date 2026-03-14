@@ -360,7 +360,16 @@ const BookingPage = () => {
       setCurrentUser(user);
       if (user) {
         const profile = await getUserProfile(user.id);
-        if (profile) setForm(f => ({ ...f, fullName: profile.full_name || f.fullName }));
+        if (profile) {
+          setForm(f => ({
+            ...f,
+            fullName: profile.full_name || f.fullName,
+            // Auto-populate whatsapp from profile, but only if user hasn't typed anything yet
+            whatsapp: (f.whatsapp === "+264" || f.whatsapp === "")
+              ? (profile.whatsapp || f.whatsapp)
+              : f.whatsapp,
+          }));
+        }
         // Load any reserved free washes this user has
         fetchMyRedemptions(user.id)
           .then(r => setReservedWashes(r.filter(x => x.status === "reserved")))

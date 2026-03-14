@@ -60,9 +60,9 @@ function storeConsent(status: "accepted" | "declined") {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function CookieBanner() {
+export default function CookieBanner({ forceShowManage = false, onClose }: { forceShowManage?: boolean; onClose?: () => void } = {}) {
   const [status,     setStatus]     = useState<ConsentStatus>("pending");
-  const [showManage, setShowManage] = useState(false);
+  const [showManage, setShowManage] = useState(forceShowManage);
   const [visible,    setVisible]    = useState(false);
 
   // On mount: read stored consent and apply it immediately
@@ -198,7 +198,7 @@ export default function CookieBanner() {
                   <h2 className="font-display font-bold text-lg flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-secondary" /> Cookie Preferences
                   </h2>
-                  <button onClick={() => setShowManage(false)}
+                  <button onClick={() => { setShowManage(false); onClose?.(); }}
                     className="p-1.5 rounded-lg hover:bg-muted transition text-muted-foreground">
                     <X className="w-4 h-4" />
                   </button>
@@ -260,7 +260,7 @@ export default function CookieBanner() {
                     </button>
                   )}
                   <button
-                    onClick={() => setShowManage(false)}
+                    onClick={() => { setShowManage(false); onClose?.(); }}
                     className="w-full px-5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground transition"
                   >
                     Close

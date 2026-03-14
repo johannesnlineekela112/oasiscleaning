@@ -821,7 +821,7 @@ const AdminDashboard = () => {
   );
 
   return (
-    <div className="min-h-screen car-pattern-bg">
+    <div className="h-screen flex flex-col overflow-hidden car-pattern-bg">
 
       {/* ── Session guards ───────────────────────────────────────────────── */}
       {/* Re-auth modal — rendered when requireReAuth() is called */}
@@ -874,39 +874,61 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10">
+      {/* ── Body: sidebar + content ───────────────────────────────── */}
+      <div className="flex flex-1 min-h-0 relative z-10">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: "Total Bookings", value: stats.total,     icon: Calendar,   color: "text-primary" },
-            { label: "Pending",        value: stats.pending,   icon: Clock,      color: "text-orange-dark" },
-            { label: "Active",         value: stats.confirmed, icon: CheckCircle,color: "text-info" },
-            { label: "Revenue (N$)",   value: stats.revenue,   icon: DollarSign, color: "text-success" },
-          ].map(s => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl shadow-card p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <s.icon className={`w-4 h-4 ${s.color}`} />
-                <span className="text-xs font-bold text-foreground/70 uppercase tracking-wider">{s.label}</span>
+        {/* ── Left sidebar ───────────────────────────────────────────── */}
+        <aside className="w-16 sm:w-56 shrink-0 flex flex-col bg-card border-r border-border overflow-y-auto">
+          {/* Stats mini-cards */}
+          <div className="p-2 sm:p-3 space-y-1.5 border-b border-border/60">
+            {[
+              { label: "Bookings", value: stats.total,     icon: Calendar,   color: "text-primary" },
+              { label: "Pending",  value: stats.pending,   icon: Clock,      color: "text-orange-500" },
+              { label: "Active",   value: stats.confirmed, icon: CheckCircle,color: "text-blue-500" },
+              { label: "Revenue",  value: `N$${stats.revenue}`, icon: DollarSign, color: "text-green-600" },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-2 px-1 sm:px-2 py-1.5 rounded-lg bg-muted/40">
+                <s.icon className={`w-3.5 h-3.5 shrink-0 ${s.color}`} />
+                <div className="hidden sm:block min-w-0">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">{s.label}</p>
+                  <p className="text-sm font-display font-bold leading-tight">{s.value}</p>
+                </div>
+                <p className="sm:hidden text-xs font-bold truncate">{s.value}</p>
               </div>
-              <p className="text-2xl font-display font-bold">{s.value}</p>
-            </motion.div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Tab bar */}
-        <div className="sticky top-[52px] z-40 flex items-center gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-card rounded-xl p-1 sm:p-1.5 shadow-card overflow-x-auto scrollbar-none">
-          {TABS.map(t => (
-            <button
-              key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition flex-1 justify-center whitespace-nowrap ${
-                tab === t.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <t.icon className="w-4 h-4" /> <span className="hidden sm:inline">{t.label}</span>
+          {/* Navigation */}
+          <nav className="flex-1 p-1.5 sm:p-2 space-y-0.5">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`w-full flex items-center gap-2.5 px-2 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition text-left ${
+                  tab === t.key
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <t.icon className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline truncate">{t.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {/* Refresh + logout at bottom */}
+          <div className="p-2 border-t border-border/60 space-y-1">
+            <button onClick={fetchAll}
+              className="w-full flex items-center gap-2 px-2 py-2 rounded-xl text-xs text-muted-foreground hover:bg-muted transition">
+              <RefreshCw className={`w-4 h-4 shrink-0 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-          ))}
-        </div>
+          </div>
+        </aside>
+
+        {/* ── Main content area ───────────────────────────────────────── */}
+        <main className="flex-1 min-w-0 overflow-y-auto admin-tab-bg">
+          <div className="max-w-5xl mx-auto px-4 sm:px-5 py-5 sm:py-6">
 
         {/* ══════════════════ BOOKINGS / HISTORY TAB ══════════════════ */}
         {(tab === "bookings" || tab === "history") && (
@@ -2265,8 +2287,7 @@ const AdminDashboard = () => {
         )}
       </div>
 
-
-            {/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
+{/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
             <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -2432,6 +2453,9 @@ const AdminDashboard = () => {
                 )}
               </div>
             </div>
+
+          </div>
+        )}
 
       {/* ══════════════════ LOYALTY TAB ══════════════════ */}
       {/* Always mounted after first open to prevent content flash on re-visit */}
@@ -3047,6 +3071,632 @@ const AdminDashboard = () => {
           <AdminSubscriptions />
         </div>
       )}
+
+      <CopyrightFooter />
+    </div>
+  );
+};
+
+export default AdminDashboar
+
+      {/* ══════════════════ LOYALTY TAB ══════════════════ */}
+      {/* Always mounted after first open to prevent content flash on re-visit */}
+      <div className={`relative z-10 ${tab === "loyalty" ? "block" : "hidden"}`}>
+          <div className="space-y-5">
+            {/* ── Referral System Toggle ── */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${referralEnabled ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"}`}>
+                    <Gift className={`w-5 h-5 ${referralEnabled ? "text-green-600" : "text-foreground/40"}`} />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold text-foreground">Referral System</p>
+                    <p className="text-xs font-medium text-foreground/70 mt-0.5">
+                      {referralEnabled
+                        ? "Active — customers can share codes and earn +25 pts per referral"
+                        : "Disabled — referral code field hidden on signup & user dashboard"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${referralEnabled ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-muted text-foreground/50"}`}>
+                    {referralEnabled ? "ON" : "OFF"}
+                  </span>
+                  <button
+                    disabled={referralSaving}
+                    onClick={async () => {
+                      setReferralSaving(true);
+                      try {
+                        const next = !referralEnabled;
+                        await setBoolSetting(SETTINGS_KEYS.REFERRAL_SYSTEM_ENABLED, next);
+                        setReferralEnabled(next);
+                        auditLog(adminUserId, "settings.referral_toggled", "settings", undefined, { enabled: next });
+                      } catch (e: any) {
+                        alert("Failed to update referral setting: " + e?.message);
+                      } finally {
+                        setReferralSaving(false);
+                      }
+                    }}
+                    className="transition"
+                    title={referralEnabled ? "Deactivate referral system" : "Activate referral system"}
+                  >
+                    {referralSaving
+                      ? <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+                      : referralEnabled
+                      ? <ToggleRight className="w-10 h-10 text-green-500" />
+                      : <ToggleLeft  className="w-10 h-10 text-foreground/30" />
+                    }
+                  </button>
+                </div>
+              </div>
+              {referralEnabled && (
+                <div className="px-5 pb-4 pt-0">
+                  <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    {[
+                      { icon: "🎁", text: "Referral code field shown on Sign Up page" },
+                      { icon: "📊", text: "Referral codes & stats shown in user Loyalty tab" },
+                      { icon: "💰", text: "Referrer earns +25 pts per successful signup" },
+                    ].map(item => (
+                      <div key={item.text} className="flex items-start gap-2 text-green-800 dark:text-green-400 font-medium">
+                        <span>{item.icon}</span><span>{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── WhatsApp Agent Number Setting ── */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="flex items-start justify-between gap-4 p-5">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/30">
+                    <MessageCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm">Chatbot WhatsApp Number</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Phone number Winny redirects customers to when they request a live agent.
+                      Include country code, no spaces or dashes (e.g. 264812781123).
+                    </p>
+                    <div className="flex gap-2 mt-3 items-center">
+                      <span className="text-sm text-muted-foreground select-none">+</span>
+                      <input
+                        value={waNumberInput}
+                        onChange={e => { setWaNumberInput(e.target.value.replace(/\D/g,"")); setWaNumberSaved(false); }}
+                        placeholder="264812781123"
+                        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition font-mono"
+                        maxLength={15}
+                      />
+                      <button
+                        disabled={waNumberSaving || !waNumberInput.trim()}
+                        onClick={async () => {
+                          setWaNumberSaving(true);
+                          try {
+                            await setSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER, waNumberInput.trim());
+                            setWaNumber(waNumberInput.trim());
+                            setWaNumberSaved(true);
+                            setTimeout(() => setWaNumberSaved(false), 3000);
+                            auditLog(adminUserId, "settings.whatsapp_updated", "settings", undefined, { number: waNumberInput.trim() });
+                          } catch (e: any) {
+                            alert("Failed to save: " + e?.message);
+                          } finally {
+                            setWaNumberSaving(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {waNumberSaving
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : waNumberSaved
+                          ? <><CheckCircle className="w-4 h-4" /> Saved!</>
+                          : <><Save className="w-4 h-4" /> Save</>}
+                      </button>
+                    </div>
+                    {waNumber && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Current: <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="text-green-600 font-mono hover:underline">+{waNumber}</a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-display font-bold flex items-center gap-2">
+                  <Award className="w-5 h-5 text-secondary" /> Loyalty Overview
+                </h2>
+                <p className="text-sm font-medium text-foreground/80 mt-0.5">
+                  {loyaltyRows.length} customer{loyaltyRows.length !== 1 ? "s" : ""} enrolled
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filter buttons */}
+                {([
+                  { key: "all",       label: "All Customers" },
+                  { key: "available", label: "Has Free Washes" },
+                  { key: "top",       label: "Top Earners" },
+                ] as const).map(f => (
+                  <button key={f.key} onClick={() => setLoyaltyFilter(f.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                      loyaltyFilter === f.key
+                        ? "bg-secondary text-secondary-foreground border-secondary"
+                        : "bg-background border-border text-foreground/70 hover:border-secondary/50"
+                    }`}>
+                    {f.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => { setLoyaltyLoading(true); fetchAdminLoyaltyOverview().then(setLoyaltyRows).catch(() => {}).finally(() => setLoyaltyLoading(false)); }}
+                  className="p-2 rounded-lg border border-border hover:bg-muted transition text-foreground/70 hover:text-foreground">
+                  <RefreshCwIcon className={`w-4 h-4 ${loyaltyLoading ? "animate-spin" : ""}`} />
+                </button>
+                <button
+                  onClick={async () => {
+                    setExpiringLoading(true);
+                    try {
+                      const n = await expireStaleRedemptions();
+                      alert(`Expired ${n} stale redemption${n !== 1 ? "s" : ""} and refunded their points.`);
+                      fetchAdminLoyaltyOverview().then(setLoyaltyRows).catch(() => {});
+                    } catch (e: any) { alert("Error: " + e?.message); }
+                    setExpiringLoading(false);
+                  }}
+                  disabled={expiringLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-900/20 text-xs font-bold hover:bg-amber-100 transition disabled:opacity-50">
+                  <Crown className={`w-3.5 h-3.5 ${expiringLoading ? "animate-spin" : ""}`} />
+                  Expire Stale
+                </button>
+              </div>
+            </div>
+
+            {/* Summary cards */}
+            {loyaltyRows.length > 0 && (() => {
+              const totalLifetime   = loyaltyRows.reduce((s, r) => s + (r.lifetime_points || 0), 0);
+              const totalFreeWashes = loyaltyRows.reduce((s, r) => s + (r.free_washes_available || 0), 0);
+              const topTier         = loyaltyRows.filter(r => r.tier === "Platinum").length;
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Total Lifetime Pts", value: totalLifetime.toLocaleString(), icon: TrendingUp, color: "text-purple-500" },
+                    { label: "Free Washes Pending", value: totalFreeWashes, icon: Gift, color: "text-green-600" },
+                    { label: "Platinum Customers", value: topTier, icon: Crown, color: "text-yellow-600" },
+                    { label: "Total Customers", value: loyaltyRows.length, icon: Users, color: "text-secondary" },
+                  ].map(s => (
+                    <div key={s.label} className="bg-card rounded-xl p-4 shadow-card">
+                      <s.icon className={`w-4 h-4 ${s.color} mb-2`} />
+                      <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-xs font-semibold text-foreground/70 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Customer table */}
+            {loyaltyLoading && loyaltyRows.length === 0 ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-secondary" /></div>
+            ) : (() => {
+              const filtered = loyaltyRows
+                .filter(r => {
+                  if (loyaltyFilter === "available") return (r.free_washes_available || 0) > 0;
+                  if (loyaltyFilter === "top")       return (r.lifetime_points || 0) >= 100;
+                  return true;
+                })
+                .sort((a, b) => {
+                  if (loyaltyFilter === "available") return (b.free_washes_available || 0) - (a.free_washes_available || 0);
+                  return (b.lifetime_points || 0) - (a.lifetime_points || 0);
+                });
+
+              if (filtered.length === 0) return (
+                <div className="text-center py-12 text-foreground/70">
+                  <Award className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold text-foreground">No customers match this filter</p>
+                </div>
+              );
+
+              return (
+                <div className="space-y-2">
+                  {filtered.map((row) => {
+                    const tier    = TIER_CONFIG[row.tier] || TIER_CONFIG.Bronze;
+                    const isOpen  = expandedLoyalty === row.user_id;
+                    const redemps = userRedemptions[row.user_id];
+
+                    return (
+                      <div key={row.user_id} className="bg-card rounded-xl shadow-card overflow-hidden">
+                        {/* Row header */}
+                        <button
+                          onClick={async () => {
+                            if (isOpen) { setExpandedLoyalty(null); return; }
+                            setExpandedLoyalty(row.user_id);
+                            if (!userRedemptions[row.user_id]) {
+                              const r = await fetchUserRedemptions(row.user_id).catch(() => [] as FreeWashRedemption[]);
+                              setUserRedemptions(prev => ({ ...prev, [row.user_id]: r }));
+                            }
+                          }}
+                          className="w-full px-3 sm:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-4 hover:bg-muted/30 transition text-left">
+                          {/* Tier badge */}
+                          <span className={`text-xl shrink-0`}>{tier.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold truncate">{row.full_name || "—"}</p>
+                            <p className="text-xs text-foreground/70 truncate">{row.email}</p>
+                          </div>
+                          {/* Key stats inline */}
+                          <div className="flex items-center gap-3 sm:gap-5 text-sm shrink-0">
+                            <div className="text-center">
+                              <p className={`font-display font-bold text-sm sm:text-base ${tier.color}`}>{(row.lifetime_points || 0).toLocaleString()}</p>
+                              <p className="text-xs font-semibold text-foreground/70">lifetime</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="font-display font-bold text-sm sm:text-base text-secondary">{(row.redeemable_points || 0).toLocaleString()}</p>
+                              <p className="text-xs font-semibold text-foreground/70">redeemable</p>
+                            </div>
+                            <div className="text-center">
+                              <p className={`font-display font-bold text-sm sm:text-base ${(row.free_washes_available || 0) > 0 ? "text-green-600" : "text-muted-foreground"}`}>
+                                {row.free_washes_available || 0}
+                              </p>
+                              <p className="text-xs font-semibold text-foreground/70">avail.</p>
+                            </div>
+                          </div>
+                          <span className={`ml-2 inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${tier.bg} ${tier.color}`}>
+                            {tier.emoji} {tier.label}
+                          </span>
+                          <ChevronDown className={`w-4 h-4 text-foreground/50 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {/* Expanded detail */}
+                        <AnimatePresence>
+                          {isOpen && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                              className="border-t border-border overflow-hidden">
+                              <div className="px-5 py-4 space-y-4">
+                                {/* Full stats grid */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {[
+                                    { label: "Lifetime Points",   value: (row.lifetime_points || 0).toLocaleString(),   icon: TrendingUp,    color: "text-purple-500" },
+                                    { label: "Redeemable Points", value: (row.redeemable_points || 0).toLocaleString(), icon: Zap,            color: "text-secondary" },
+                                    { label: "Completed Bookings",value: row.completed_bookings_count || 0,              icon: CheckCircle,    color: "text-blue-500" },
+                                    { label: "Washes Earned",     value: row.free_washes_earned || 0,                   icon: Gift,           color: "text-green-600" },
+                                    { label: "Washes Used",       value: row.free_washes_used || 0,                     icon: CheckCircle,    color: "text-foreground/60" },
+                                    { label: "Available Washes",  value: row.free_washes_available || 0,                icon: Sparkles,       color: (row.free_washes_available || 0) > 0 ? "text-green-600" : "text-foreground/50" },
+                                  ].map(s => (
+                                    <div key={s.label} className="bg-muted/30 rounded-lg p-3">
+                                      <s.icon className={`w-3.5 h-3.5 ${s.color} mb-1`} />
+                                      <p className={`font-display font-bold text-lg ${s.color}`}>{s.value}</p>
+                                      <p className="text-xs font-semibold text-foreground/70">{s.label}</p>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Referral code */}
+                                {row.referral_code && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className="text-foreground/70 font-semibold">Referral code:</span>
+                                    <span className="font-mono font-bold text-secondary">{row.referral_code}</span>
+                                    <span className="text-foreground/70 text-xs font-medium">· {row.total_referrals || 0} referrals</span>
+                                  </div>
+                                )}
+
+                                {/* Redemption history */}
+                                <div>
+                                  <p className="text-xs font-bold uppercase tracking-wider text-foreground/70 mb-2">Redemption History</p>
+                                  {!redemps ? (
+                                    <div className="flex items-center gap-2 text-sm text-foreground/70 py-2">
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+                                    </div>
+                                  ) : redemps.length === 0 ? (
+                                    <p className="text-sm text-foreground/70">No redemptions yet.</p>
+                                  ) : (
+                                    <div className="space-y-1.5">
+                                      {redemps.map(r => {
+                                        const sc = REDEMPTION_STATUS[r.status] || REDEMPTION_STATUS.cancelled;
+                                        return (
+                                          <div key={r.id} className="flex items-center justify-between gap-3 text-sm bg-muted/20 rounded-lg px-3 py-2">
+                                            <div>
+                                              <span className="font-semibold">Free Standard Wash</span>
+                                              <span className="text-foreground/70 text-xs ml-2 font-medium">
+                                                {new Date(r.redeemed_at).toLocaleDateString("en-NA", { day:"numeric", month:"short", year:"numeric" })}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                              {r.status === "reserved" && (
+                                                <span className="text-xs text-amber-600">{formatExpiry(r.expires_at)}</span>
+                                              )}
+                                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sc.color}`}>{sc.label}</span>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+      {/* ══════════════════ MARKETING ADS TAB ══════════════════ */}
+      {/* Always mounted - prevents data-reload flash on tab switch */}
+      <div className={`relative z-10 ${tab === "ads" ? "block" : "hidden"}`}>
+        <AdminAds />
+      </div>
+
+      {/* ══════════════════ SECURITY TAB ══════════════════ */}
+      {tab === "security" && (
+        <div className="relative z-10 px-3 sm:px-6 pb-8 space-y-6">
+
+          {/* Active Blocks */}
+          <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+              <div>
+                <h3 className="font-bold text-sm">Active Abuse Blocks</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Identifiers blocked for excessive failed attempts</p>
+              </div>
+              <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">
+                {abuseBlocks.filter(b => new Date(b.expires_at) > new Date()).length} active
+              </span>
+            </div>
+            {abuseBlocks.filter(b => new Date(b.expires_at) > new Date()).length === 0 ? (
+              <div className="px-5 py-8 text-center text-muted-foreground text-sm">
+                <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                No active blocks
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {abuseBlocks.filter(b => new Date(b.expires_at) > new Date()).map((b: any) => (
+                  <div key={b.id} className="px-5 py-3 flex items-center gap-3 flex-wrap">
+                    <div className="font-mono text-xs bg-muted px-2 py-1 rounded">{b.identifier}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-destructive">{b.reason}</p>
+                      <p className="text-xs text-muted-foreground">Expires: {new Date(b.expires_at).toLocaleString("en-NA")}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await supabase.from("abuse_blocks").delete().eq("id", b.id);
+                        setAbuseBlocks(prev => prev.filter(x => x.id !== b.id));
+                        auditLog(adminUserId, "security.abuse_unblocked", "abuse_block", b.id, { identifier: b.identifier, reason: b.reason });
+                      }}
+                      className="px-3 py-1 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition"
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Security Logs */}
+          <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <ShieldCheck className="w-5 h-5 text-secondary shrink-0" />
+                <div>
+                  <h3 className="font-bold text-sm">Security Logs</h3>
+                  <p className="text-xs text-muted-foreground">Last 200 events</p>
+                </div>
+              </div>
+              <div className="flex gap-1.5">
+                {(["all","allowed","blocked"] as const).map(f => (
+                  <button key={f} onClick={() => setSecLogFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                      secLogFilter === f
+                        ? f === "blocked" ? "bg-destructive text-white border-destructive"
+                          : f === "allowed" ? "bg-green-600 text-white border-green-600"
+                          : "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border text-muted-foreground hover:border-border"
+                    }`}>
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setSecLogsLoading(true);
+                    supabase.from("security_logs").select("*").order("created_at", { ascending: false }).limit(200)
+                      .then(r => setSecLogs(r.data ?? [])).finally(() => setSecLogsLoading(false));
+                  }}
+                  className="p-1.5 rounded-lg border border-border hover:bg-muted transition"
+                >
+                  <RefreshCwIcon className={`w-4 h-4 ${secLogsLoading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+            {secLogsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-secondary" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted/40 border-b border-border">
+                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Time</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Action</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Result</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground hidden sm:table-cell">Fingerprint</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground hidden md:table-cell">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {secLogs
+                      .filter(l => secLogFilter === "all" || l.result === secLogFilter)
+                      .map((log: any) => (
+                        <tr key={log.id} className={`hover:bg-muted/20 transition ${log.result === "blocked" ? "bg-red-50/40 dark:bg-red-900/10" : ""}`}>
+                          <td className="px-4 py-2 font-mono whitespace-nowrap text-muted-foreground">
+                            {new Date(log.created_at).toLocaleString("en-NA", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" })}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-primary/10 text-primary uppercase tracking-wide">
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${log.result === "allowed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}`}>
+                              {log.result}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 font-mono text-muted-foreground hidden sm:table-cell">
+                            {log.ip ?? "—"}
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
+                            {log.reason ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    {secLogs.filter(l => secLogFilter === "all" || l.result === secLogFilter).length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No logs found</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ Analytics tab ══════════════════════════════════════════════════════════ */}
+      {tab === "analytics" && (
+        <div>
+          <AdminAnalytics />
+        </div>
+      )}
+
+      {/* ══ Audit Log tab ══════════════════════════════════════════════════════════ */}
+      {tab === "audit" && (
+        <div className="space-y-4">
+          <div className="bg-card rounded-xl shadow-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div>
+                <h3 className="font-bold text-sm">Admin Action Log</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Tamper-proof record of every mutating admin action. Entries cannot be edited or deleted.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setAuditLogsLoading(true);
+                  supabase.from("admin_audit_log").select("*, admin:admin_id(full_name)").order("created_at", { ascending: false }).limit(300)
+                    .then(({ data }) => setAuditLogs(data ?? []))
+                    .catch(() => {}).finally(() => setAuditLogsLoading(false));
+                }}
+                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition"
+                title="Refresh"
+              >
+                <RefreshCwIcon className={`w-4 h-4 ${auditLogsLoading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+            {auditLogsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : auditLogs.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-sm">
+                <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                No audit entries yet. Actions taken by admins will appear here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40">
+                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground">Time</th>
+                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground">Admin</th>
+                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground">Action</th>
+                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground hidden sm:table-cell">Target</th>
+                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground hidden md:table-cell">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {auditLogs.map((entry: any) => {
+                      const actionColor =
+                        entry.action.includes("deleted") ? "text-destructive bg-destructive/10" :
+                        entry.action.includes("paid") || entry.action.includes("approved") ? "text-success bg-success/10" :
+                        entry.action.includes("created") ? "text-info bg-info/10" :
+                        "text-foreground bg-muted";
+                      return (
+                        <tr key={entry.id} className="hover:bg-muted/20 transition">
+                          <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                            {new Date(entry.created_at).toLocaleString("en-NA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="px-4 py-2.5 font-medium truncate max-w-[100px]">
+                            {entry.admin?.full_name ?? entry.admin_id?.slice(0, 8) ?? "—"}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${actionColor}`}>
+                              {entry.action}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
+                            {entry.target_type ?? "—"}{entry.target_id ? ` #${entry.target_id.slice(0, 8)}` : ""}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell max-w-[220px] truncate">
+                            {entry.payload ? JSON.stringify(entry.payload).slice(0, 80) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ Admin image lightbox ══ */}
+      <AnimatePresence>
+        {imagesLightbox && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setImagesLightbox(null)}
+          >
+            <button
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
+              onClick={() => setImagesLightbox(null)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.85 }} animate={{ scale: 1 }}
+              src={imagesLightbox.signedUrl || ""}
+              alt="Job photo"
+              className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {tab === "payments" && (
+        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
+          <AdminPaymentVerification />
+        </div>
+      )}
+
+      {tab === "subscriptions" && (
+        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
+          <AdminSubscriptions />
+        </div>
+      )}
+
+          </div> {/* end max-w-5xl content */}
+        </main>
+      </div> {/* end flex body */}
 
       <CopyrightFooter />
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CopyrightFooter } from "@/components/CopyrightFooter";
 import { motion } from "framer-motion";
-import { Lock, Mail, ArrowLeft, Loader2, User, UserPlus, Phone, Gift, ShieldAlert } from "lucide-react";
+import { Lock, Mail, ArrowLeft, Loader2, User, UserPlus, Phone, Gift, ShieldAlert, Eye, EyeOff, KeyRound, CheckCircle } from "lucide-react";
 import { loginUser, registerUser, getUserProfile, logout } from "@/lib/authService";
 import { getBoolSetting, SETTINGS_KEYS } from "@/lib/settingsService";
 import { getLegalDocument, recordTCAcceptance } from "@/lib/contentService";
@@ -39,6 +39,12 @@ const AuthPage = () => {
   const [showTC,       setShowTC]       = useState(false);
   // Honeypot — hidden from real users, filled by bots
   const [honeypot,     setHoneypot]     = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  // Forgot / reset password
+  const [view,         setView]         = useState<"login" | "forgot" | "reset_sent">("login");
+  const [resetEmail,   setResetEmail]   = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError,   setResetError]   = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -102,6 +108,26 @@ const AuthPage = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    if (!resetEmail.trim()) { setResetError("Please enter your email address."); return; }
+    setResetLoading(true);
+    try {
+      const { error } = await import("@/lib/supabase").then(m =>
+        m.supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+          redirectTo: window.location.origin + "/auth?reset=1",
+        })
+      );
+      if (error) throw error;
+      setView("reset_sent");
+    } catch (err: any) {
+      setResetError(err?.message ?? "Failed to send reset email. Please try again.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 car-pattern-bg bg-navy-gradient overflow-auto">
       {showTC && <AboutModal initialTab="tc" onClose={() => setShowTC(false)} />}
@@ -115,6 +141,64 @@ const AuthPage = () => {
             transition={{ duration: 0.5 }}
             className="bg-card rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md"
           >
+
+        {/* ── Forgot password view ──────────────────────────────────────── */}
+        {view === "forgot" && (
+          <div>
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(255,140,0,0.1)" }}>
+                <KeyRound className="w-7 h-7" style={{ color: "#FF8C00" }} />
+              </div>
+              <h2 className="font-display text-2xl font-bold">Reset Password</h2>
+              <p className="text-sm text-muted-foreground mt-1">Enter your email and we will send you a reset link.</p>
+            </div>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={e => setResetEmail(e.target.value)}
+                  placeholder="Your email address"
+                  required
+                  className="w-full px-4 py-3 pl-11 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
+                />
+              </div>
+              {resetError && <p className="text-sm text-destructive">{resetError}</p>}
+              <button
+                type="submit"
+                disabled={resetLoading}
+                className="w-full py-3 rounded-xl font-bold text-white transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: "#FF8C00" }}
+              >
+                {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><KeyRound className="w-5 h-5" /> Send Reset Link</>}
+              </button>
+              <button type="button" onClick={() => setView("login")}
+                className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition flex items-center justify-center gap-1">
+                <ArrowLeft className="w-4 h-4" /> Back to login
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ── Reset email sent view ─────────────────────────────────────── */}
+        {view === "reset_sent" && (
+          <div className="text-center py-4">
+            <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+            <h2 className="font-display text-xl font-bold mb-2">Check your email</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              We sent a password reset link to <strong>{resetEmail}</strong>.<br />
+              Check your inbox and click the link to set a new password.
+            </p>
+            <button onClick={() => setView("login")}
+              className="text-sm font-semibold text-secondary hover:text-secondary/80 transition">
+              Back to login
+            </button>
+          </div>
+        )}
+
+        {/* ── Main login / signup view ──────────────────────────────────── */}
+        {view === "login" && (
         <div className="text-center mb-8">
           <button onClick={() => window.location.reload()} className="mx-auto block group">
             <img
@@ -280,6 +364,7 @@ const AuthPage = () => {
         <Link to="/" className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground hover:text-foreground transition">
           <ArrowLeft className="w-4 h-4" /> Back to Booking
         </Link>
+        )} {/* end view === login */}
       </motion.div>
       </div>{/* end centred card */}
 
