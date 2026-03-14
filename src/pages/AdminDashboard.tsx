@@ -12,7 +12,7 @@ import {
   MessageCircle, Bell, Mail, Lock, Plus, Edit2, ToggleLeft, ToggleRight,
   ShieldCheck, Briefcase, X, BookOpen, Image, FileText, ChevronUp,
   Megaphone, AlertTriangle, Award, Gift, TrendingUp, Zap, Crown,
-  Sparkles, Filter, RefreshCw as RefreshCwIcon,
+  Sparkles, Filter, ChevronDown as ChevronDownIcon, RefreshCw as RefreshCwIcon,
   Camera, ImageIcon,
   FileSpreadsheet, Download, CheckSquare, Banknote, ReceiptText, BarChart2,
 } from "lucide-react";
@@ -63,6 +63,7 @@ import AdminPaymentVerification from "@/components/AdminPaymentVerification";
 import AdminSubscriptions from "@/components/AdminSubscriptions";
 import { useToastQueue, NotificationToastStack } from "@/components/NotificationToast";
 import logo from "@/assets/logo-car.png";
+import AdminSidebar from "@/components/AdminSidebar";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
@@ -96,9 +97,12 @@ const AdminDashboard = () => {
   const [histExportStart,   setHistExportStart]   = useState("");
   const [histExportEnd,     setHistExportEnd]     = useState("");
   const [histExportLoading, setHistExportLoading] = useState<"csv"|"xlsx"|false>(false);
+  const [histFilterStart,   setHistFilterStart]   = useState("");
+  const [histFilterEnd,     setHistFilterEnd]     = useState("");
   const [commExportStart,   setCommExportStart]   = useState("");
   const [commExportEnd,     setCommExportEnd]     = useState("");
   const [commExportLoading, setCommExportLoading] = useState<"csv"|"xlsx"|false>(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const prevBookingCount = useRef(0);
   const navigate = useNavigate();
   const { toasts, pushToast, dismissToast } = useToastQueue();
@@ -161,6 +165,23 @@ const AdminDashboard = () => {
   const [newSlotValue,     setNewSlotValue]     = useState("");
   const [newSlotLabel,     setNewSlotLabel]     = useState("");
   const [newSlotIsVip,     setNewSlotIsVip]     = useState(false);
+
+  // Complete booking — photo gate state
+  const [completingId,       setCompletingId]       = useState<string | null>(null);
+  const [photoGateData,      setPhotoGateData]      = useState<{ bookingId: string; photoCount: number; required: number } | null>(null);
+
+  // Banking details (business_settings.payment_details)
+  const BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
+  const SUPABASE_FN_URL = "https://gzbkpwdnkhsbeygnynbh.supabase.co/functions/v1";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ymtwd2Rua2hzYmV5Z255bmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTU1ODcsImV4cCI6MjA4NjIzMTU4N30.reLOBC1F2zbMgAD7Z6I6z_D9s37OhDC4b4Gfr-Ltig8";
+  const [bankingDetails,     setBankingDetails]     = useState({
+    eft_bank_name: "", eft_account_name: "", eft_account_number: "", eft_branch_code: "", eft_reference: "",
+    ewallet_number: "", ewallet_instructions: "",
+    pay2cell_number: "", pay2cell_instructions: "",
+  });
+  const [bankingLoading,     setBankingLoading]     = useState(false);
+  const [bankingSaving,      setBankingSaving]      = useState(false);
+  const [bankingSaved,       setBankingSaved]       = useState(false);
 
   // Booking images: keyed by bookingId
   const [bookingImages,      setBookingImages]      = useState<Record<string, BookingImage[]>>({});
@@ -225,8 +246,9 @@ const AdminDashboard = () => {
       if (!user) { navigate("/admin"); return; }
       const admin = await isAdmin(user.id);
       if (!admin) { navigate("/admin"); return; }
+      const profile = await getUserProfile(user.id).catch(() => null);
       setAdminUserId(user.id);
-      getUserProfile(user.id).then(p => { if (p?.full_name) setAdminName(p.full_name); }).catch(() => {});
+      if (profile?.full_name) setAdminName(profile.full_name);
       setAuthChecked(true);
     });
   }, [navigate]);
@@ -261,17 +283,48 @@ const AdminDashboard = () => {
     Promise.all([
       fetchAdminLoyaltyOverview(),
       getBoolSetting(SETTINGS_KEYS.REFERRAL_SYSTEM_ENABLED, true),
-      getSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER),
-      getTimeslots(),
     ])
-      .then(([rows, enabled, waNum, slots]) => {
+      .then(([rows, enabled]) => {
         setLoyaltyRows(rows);
         setReferralEnabled(enabled);
-        if (waNum) { setWaNumber(waNum); setWaNumberInput(waNum); }
-        if (slots) setTimeslots(slots);
       })
       .catch(() => {})
       .finally(() => setLoyaltyLoading(false));
+  }, [authChecked, tab]);
+
+  // Load Settings tab data (banking + whatsapp) on first open
+  const settingsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!authChecked || tab !== "settings") return;
+    if (settingsLoadedRef.current) return;
+    settingsLoadedRef.current = true;
+    setBankingLoading(true);
+    Promise.all([
+      supabase.from("business_settings").select("payment_details").eq("business_id", BUSINESS_ID).maybeSingle(),
+      getSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER),
+      getTimeslots(),
+    ])
+      .then(([{ data }, waNum, slots]) => {
+        if (data?.payment_details) {
+          const pd = data.payment_details;
+          setBankingDetails({
+            eft_bank_name:         pd.eft?.bank_name           ?? "",
+            eft_account_name:      pd.eft?.account_name        ?? "",
+            eft_account_number:    pd.eft?.account_number      ?? "",
+            eft_branch_code:       pd.eft?.branch_code         ?? "",
+            eft_reference:         pd.eft?.reference_hint      ?? "",
+            ewallet_number:        pd.ewallet?.number          ?? "",
+            ewallet_instructions:  pd.ewallet?.instructions    ?? "",
+            pay2cell_number:       pd.pay2cell?.number         ?? "",
+            pay2cell_instructions: pd.pay2cell?.instructions   ?? "",
+          });
+        }
+        if (waNum) { setWaNumber(waNum); setWaNumberInput(waNum); }
+        if (slots) setTimeslots(slots);
+        if (slots) setTimeslots(slots);
+      })
+      .catch(() => {})
+      .finally(() => setBankingLoading(false));
   }, [authChecked, tab]);
 
   // ─── Realtime subscription ─────────────────────────────────────────────────
@@ -426,11 +479,19 @@ const AdminDashboard = () => {
     b.status !== "cancelled" &&
     b.status !== "late_cancelled"
   );
-  // History: completed bookings only
-  const completedBookingsHist = bookings.filter(b => b.status === "completed");
-  const cancelledBookingsHist = bookings.filter(b =>
-    b.status === "cancelled" || b.status === "late_cancelled"
-  );
+  // History: filter by date range if set
+  const completedBookingsHist = bookings.filter(b => {
+    if (b.status !== "completed") return false;
+    if (histFilterStart && b.booking_date < histFilterStart) return false;
+    if (histFilterEnd   && b.booking_date > histFilterEnd)   return false;
+    return true;
+  });
+  const cancelledBookingsHist = bookings.filter(b => {
+    if (b.status !== "cancelled" && b.status !== "late_cancelled") return false;
+    if (histFilterStart && b.booking_date < histFilterStart) return false;
+    if (histFilterEnd   && b.booking_date > histFilterEnd)   return false;
+    return true;
+  });
   const historyBookings = completedBookingsHist;
 
   const displayed =
@@ -456,9 +517,22 @@ const AdminDashboard = () => {
       if (b && !b.paid) { alert("Mark booking as Paid first before completing."); return; }
     }
     const prev = bookings.find(x => x.id === id)?.status;
-    await updateBookingStatus(id, status);
-    setBookings(prev2 => prev2.map(b => b.id === id ? { ...b, status } : b));
-    auditLog(adminUserId, "booking.status_changed", "booking", id, { from: prev, to: status });
+    try {
+      await updateBookingStatus(id, status);
+      setBookings(prev2 => prev2.map(b => b.id === id ? { ...b, status } : b));
+      auditLog(adminUserId, "booking.status_changed", "booking", id, { from: prev, to: status });
+    } catch (err: any) {
+      const msg: string = err?.message ?? "";
+      if (msg.includes("PHOTO_GATE") || msg.includes("photo")) {
+        const match = msg.match(/requires at least (\d+) photo/);
+        const needed = match ? match[1] : "2";
+        alert(`Cannot complete booking: at least ${needed} job photo(s) must be uploaded first.
+
+Expand the booking and upload photos using the camera section, then try again.`);
+      } else {
+        alert("Failed to update booking status: " + (msg || "Unknown error"));
+      }
+    }
   };
 
   const handlePaidToggle = async (id: string, paid: boolean) => {
@@ -533,6 +607,24 @@ const AdminDashboard = () => {
       setStaffMsg(err?.message || "Failed to register.");
     }
     setStaffLoading(false);
+  };
+
+
+  // ─── Banking details save ──────────────────────────────────────────────────
+  const handleSaveBanking = async () => {
+    setBankingSaving(true);
+    try {
+      const payment_details = {
+        eft: { bank_name: bankingDetails.eft_bank_name, account_name: bankingDetails.eft_account_name, account_number: bankingDetails.eft_account_number, branch_code: bankingDetails.eft_branch_code, reference_hint: bankingDetails.eft_reference },
+        ewallet: { number: bankingDetails.ewallet_number, instructions: bankingDetails.ewallet_instructions },
+        pay2cell: { number: bankingDetails.pay2cell_number, instructions: bankingDetails.pay2cell_instructions },
+      };
+      const { error } = await supabase.from("business_settings").update({ payment_details, updated_at: new Date().toISOString() }).eq("business_id", BUSINESS_ID);
+      if (error) throw error;
+      setBankingSaved(true); setTimeout(() => setBankingSaved(false), 3000);
+      auditLog(adminUserId, "settings.banking_updated", "settings", undefined, {});
+    } catch (e: any) { alert("Failed to save banking details: " + e?.message); }
+    finally { setBankingSaving(false); }
   };
 
   // ─── Service CRUD ──────────────────────────────────────────────────────────
@@ -761,23 +853,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const TABS: { key: Tab; label: string; icon: any }[] = [
-    { key: "analytics",     label: "Analytics",       icon: BarChart2 },
-    { key: "bookings",      label: "Bookings",        icon: ClipboardList },
-    { key: "history",       label: "History",         icon: History },
-    { key: "payments",      label: "Payments",        icon: CreditCard },
-    { key: "subscriptions", label: "Subscriptions",   icon: Zap },
-    { key: "loyalty",       label: "Loyalty",         icon: Award },
-    { key: "employees",     label: "Staff",           icon: Users },
-    { key: "settings",      label: "Services",        icon: Settings },
-    { key: "payouts",       label: "Payouts",         icon: ReceiptText },
-    { key: "about",         label: "About & Legal",   icon: BookOpen },
-    { key: "ads",           label: "Marketing",       icon: Megaphone },
-    { key: "security",      label: "Security",        icon: ShieldCheck },
-    { key: "audit",         label: "Audit Log",       icon: ClipboardList },
-  ];
-
-
   // Load payouts when switching to payouts tab
   useEffect(() => {
     if (!authChecked || tab !== "payouts") return;
@@ -821,44 +896,52 @@ const AdminDashboard = () => {
   );
 
   return (
-    <div className="min-h-screen car-pattern-bg">
+    <div className="h-screen overflow-hidden flex flex-col bg-background">
 
       {/* ── Session guards ───────────────────────────────────────────────── */}
-      {/* Re-auth modal — rendered when requireReAuth() is called */}
       <ReAuthGate />
-      {/* Inactivity countdown banner */}
       <InactivityWarning show={showWarning} countdown={countdown} onStay={stayLoggedIn} />
-
-      {/* Notification toasts */}
       <NotificationToastStack toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-lg gap-2">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 h-[52px] bg-primary text-primary-foreground flex items-center justify-between px-3 sm:px-5 shadow-lg gap-2 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
-            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" />
+          {/* Mobile sidebar toggle */}
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition text-primary-foreground/80 shrink-0"
+            aria-label="Open navigation"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </button>
-          {/* Always-visible title block */}
-          <div className="min-w-0">
-            <h1 className="font-display font-bold text-sm sm:text-base leading-tight">Oasis Pure Cleaning CC</h1>
-            <p className="text-[10px] sm:text-xs text-primary-foreground/60 truncate">Admin Dashboard</p>
+          <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
+            <div className="bg-[#0a1628] rounded-xl p-1 flex items-center justify-center">
+              <img src={logo} alt="Oasis" className="h-8 w-auto object-contain drop-shadow-md" />
+            </div>
+          </button>
+          <div className="min-w-0 hidden sm:block">
+            <h1 className="font-display font-bold text-sm leading-tight">Oasis Pure Cleaning CC</h1>
+            <p className="text-[10px] text-primary-foreground/50 truncate">Admin Operations</p>
           </div>
         </div>
 
-        {/* Admin identity pill — name always visible on all screen sizes */}
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2 bg-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 border border-white/15">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-2.5 py-1.5 border border-white/10">
             <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-bold text-secondary-foreground">
-                {adminName.charAt(0).toUpperCase()}
-              </span>
+              <span className="text-[10px] font-bold text-secondary-foreground">{adminName.charAt(0).toUpperCase()}</span>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold leading-tight truncate max-w-[80px] sm:max-w-[140px]">{adminName}</p>
-              <p className="text-[9px] text-primary-foreground/50 font-semibold uppercase tracking-wider">Administrator</p>
+            <div className="min-w-0 hidden sm:block">
+              <p className="text-xs font-bold leading-tight truncate max-w-[120px]">{adminName}</p>
+              <p className="text-[9px] text-primary-foreground/50 uppercase tracking-wider">Administrator</p>
             </div>
           </div>
-          <button onClick={fetchAll} className="text-primary-foreground/70 hover:text-primary-foreground p-2 rounded-lg hover:bg-white/10 transition">
+          <button
+            onClick={fetchAll}
+            className="p-2 rounded-lg hover:bg-white/10 transition text-primary-foreground/70 hover:text-primary-foreground"
+            title="Refresh data"
+          >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
@@ -867,50 +950,43 @@ const AdminDashboard = () => {
               await logout();
               navigate("/admin/login");
             }}
-            className="bg-red-600 text-white px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 hover:bg-red-700 transition"
+            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition"
           >
             <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10">
+      {/* ── Body: sidebar + scrollable content ──────────────────────────── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: "Total Bookings", value: stats.total,     icon: Calendar,   color: "text-primary" },
-            { label: "Pending",        value: stats.pending,   icon: Clock,      color: "text-orange-dark" },
-            { label: "Active",         value: stats.confirmed, icon: CheckCircle,color: "text-info" },
-            { label: "Revenue (N$)",   value: stats.revenue,   icon: DollarSign, color: "text-success" },
-          ].map(s => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl shadow-card p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <s.icon className={`w-4 h-4 ${s.color}`} />
-                <span className="text-xs font-bold text-foreground/70 uppercase tracking-wider">{s.label}</span>
-              </div>
-              <p className="text-2xl font-display font-bold">{s.value}</p>
-            </motion.div>
-          ))}
-        </div>
+        {/* Left sidebar navigation */}
+        <AdminSidebar
+          tab={tab as any}
+          setTab={setTab as any}
+          stats={stats}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(o => !o)}
+        />
 
-        {/* Tab bar */}
-        <div className="sticky top-[52px] z-40 flex items-center gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-card rounded-xl p-1 sm:p-1.5 shadow-card overflow-x-auto scrollbar-none">
-          {TABS.map(t => (
-            <button
-              key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition flex-1 justify-center whitespace-nowrap ${
-                tab === t.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <t.icon className="w-4 h-4" /> <span className="hidden sm:inline">{t.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Main content area — all tab panels render here */}
+        <main className="flex-1 min-w-0 overflow-y-auto bg-muted/20 admin-tab-bg">
+          <div className="max-w-5xl mx-auto px-4 sm:px-5 py-5 sm:py-6">
 
         {/* ══════════════════ BOOKINGS / HISTORY TAB ══════════════════ */}
         {(tab === "bookings" || tab === "history") && (
           <>
+            {/* ── Section header ── */}
+            <div className="mb-5 pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl text-foreground flex items-center gap-2">
+                {tab === "bookings" ? <ClipboardList className="w-5 h-5 text-secondary" /> : <History className="w-5 h-5 text-secondary" />}
+                {tab === "bookings" ? "Bookings" : "History"}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {tab === "bookings" ? "Manage active and upcoming jobs" : "Completed and cancelled booking records"}
+              </p>
+            </div>
+
             {/* ── Bookings sub-tabs ── */}
             {tab === "bookings" && (
               <div className="mb-5 space-y-3">
@@ -938,7 +1014,7 @@ const AdminDashboard = () => {
                     ? `All bookings scheduled for today (${_todayDate}).`
                     : bookingSubTab === "upcoming"
                     ? "All future bookings regardless of status."
-                    : "Past bookings that were never completed — pending, confirmed, or cancelled."}
+                    : "Past bookings that were never completed. These include pending, confirmed, or cancelled bookings."}
                 </p>
               </div>
             )}
@@ -947,7 +1023,7 @@ const AdminDashboard = () => {
             {tab === "history" && (
               <div className="mb-5 space-y-4">
                 {/* Sub-tab selector */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {([
                     { key: "completed",    label: `Completed (${completedBookingsHist.length})`,    color: "bg-green-600 text-white", inactive: "bg-card text-foreground/70 border border-border hover:border-green-400" },
                     { key: "cancellations",label: `Cancelled (${cancelledBookingsHist.length})`,    color: "bg-red-600 text-white",   inactive: "bg-card text-foreground/70 border border-border hover:border-red-400" },
@@ -957,6 +1033,29 @@ const AdminDashboard = () => {
                       {st.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Date range filter */}
+                <div className="bg-card rounded-xl border border-border p-3 flex items-end gap-3 flex-wrap">
+                  <div>
+                    <label className="text-xs font-semibold text-foreground/70 block mb-1">From</label>
+                    <input type="date" value={histFilterStart} onChange={e => setHistFilterStart(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-foreground/70 block mb-1">To</label>
+                    <input type="date" value={histFilterEnd} onChange={e => setHistFilterEnd(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30" />
+                  </div>
+                  {(histFilterStart || histFilterEnd) && (
+                    <button onClick={() => { setHistFilterStart(""); setHistFilterEnd(""); }}
+                      className="px-3 py-2 rounded-lg border border-border text-sm font-semibold text-foreground/70 hover:bg-muted transition">
+                      Clear filter
+                    </button>
+                  )}
+                  {(!histFilterStart && !histFilterEnd) && (
+                    <p className="text-xs text-foreground/50 self-center">Showing all history. Set a date range to filter.</p>
+                  )}
                 </div>
 
                 {/* Context line */}
@@ -1231,7 +1330,7 @@ const AdminDashboard = () => {
                                     onChange={(e) => handleAssign(booking.id!, e.target.value)}
                                     className="px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                   >
-                                    <option value="">— Unassigned —</option>
+                                    <option value="">Unassigned</option>
                                     {staff.filter(s => s.role === "employee").map(s => (
                                       <option key={s.id} value={s.id}>{s.full_name} ({s.employee_number})</option>
                                     ))}
@@ -1261,14 +1360,25 @@ const AdminDashboard = () => {
                                   </button>
                                 )}
 
-                                {canComplete && (
-                                  <button
-                                    onClick={() => handleStatusChange(booking.id!, "completed")}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase bg-success/20 text-success hover:bg-success/30 transition flex items-center gap-1.5"
-                                  >
-                                    <CheckCircle className="w-3.5 h-3.5" /> Complete
-                                  </button>
-                                )}
+                                {canComplete && (() => {
+                                  const photoCount = bookingImages[booking.id!]?.length ?? 0;
+                                  const photosOk = photoCount >= 2;
+                                  return (
+                                    <div className="flex flex-col items-start gap-0.5">
+                                      <button
+                                        onClick={() => handleStatusChange(booking.id!, "completed")}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase bg-success/20 text-success hover:bg-success/30 transition flex items-center gap-1.5"
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" /> Complete
+                                      </button>
+                                      {!photosOk && (
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                                          ⚠ Upload {2 - photoCount} more photo{photoCount < 1 ? "s" : ""} first
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
 
                                 {!canComplete && booking.status !== "pending" && booking.status !== "cancelled" && (
                                   <span className="text-xs text-muted-foreground italic">
@@ -1334,6 +1444,12 @@ const AdminDashboard = () => {
         {/* ══════════════════ STAFF TAB ══════════════════ */}
         {tab === "employees" && (
           <div className="space-y-6">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <Users className="w-5 h-5 text-secondary" /> Staff Management
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Register employees, manage roles, and set commission rates</p>
+            </div>
 
             {/* Register form */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl shadow-card p-6">
@@ -1471,6 +1587,150 @@ const AdminDashboard = () => {
         {/* ══════════════════ SERVICES / SETTINGS TAB ══════════════════ */}
         {tab === "settings" && (
           <div className="space-y-6">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <Settings className="w-5 h-5 text-secondary" /> Settings
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Services, pricing, banking details, commission rates, and notifications</p>
+            </div>
+
+            {/* ── Chatbot WhatsApp Number ── */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="flex items-start justify-between gap-4 p-5">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/30">
+                    <MessageCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-sm">Chatbot WhatsApp Number</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Phone number Winny redirects customers to when they request a live agent. Include country code, no spaces or dashes (e.g. 264812781123).</p>
+                    <div className="flex gap-2 mt-3 items-center">
+                      <span className="text-sm text-muted-foreground select-none">+</span>
+                      <input
+                        value={waNumberInput}
+                        onChange={e => { setWaNumberInput(e.target.value.replace(/\D/g,"")); setWaNumberSaved(false); }}
+                        placeholder="264812781123"
+                        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition font-mono"
+                        maxLength={15}
+                      />
+                      <button
+                        disabled={waNumberSaving || !waNumberInput.trim()}
+                        onClick={async () => {
+                          setWaNumberSaving(true);
+                          try {
+                            await setSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER, waNumberInput.trim());
+                            setWaNumber(waNumberInput.trim());
+                            setWaNumberSaved(true);
+                            setTimeout(() => setWaNumberSaved(false), 3000);
+                            auditLog(adminUserId, "settings.whatsapp_updated", "settings", undefined, { number: waNumberInput.trim() });
+                          } catch (e: any) { alert("Failed to save: " + e?.message); }
+                          finally { setWaNumberSaving(false); }
+                        }}
+                        className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {waNumberSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : waNumberSaved ? <><CheckCircle className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save</>}
+                      </button>
+                    </div>
+                    {waNumber && (
+                      <p className="text-xs text-muted-foreground mt-2">Current: <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="text-green-600 font-mono hover:underline">+{waNumber}</a></p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Banking & Payment Details ── */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-secondary/10">
+                    <Banknote className="w-5 h-5 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">Banking & Payment Details</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Shown to customers on the booking confirmation screen</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSaveBanking}
+                  disabled={bankingSaving}
+                  className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-secondary text-secondary-foreground hover:opacity-90 shadow-orange disabled:opacity-50"
+                >
+                  {bankingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : bankingSaved ? <><CheckCircle className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save All</>}
+                </button>
+              </div>
+              {bankingLoading ? (
+                <div className="p-6 flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+              ) : (
+                <div className="p-5 space-y-5">
+                  {/* EFT */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><ReceiptText className="w-3.5 h-3.5" /> EFT / Bank Transfer</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {[
+                        { label: "Bank Name", key: "eft_bank_name" as const, placeholder: "e.g. First National Bank" },
+                        { label: "Account Name", key: "eft_account_name" as const, placeholder: "e.g. Oasis Pure Cleaning CC" },
+                        { label: "Account Number", key: "eft_account_number" as const, placeholder: "e.g. 62xxxxxxxx" },
+                        { label: "Branch Code", key: "eft_branch_code" as const, placeholder: "e.g. 280172" },
+                        { label: "Reference Hint", key: "eft_reference" as const, placeholder: "e.g. Your name + booking date" },
+                      ].map(field => (
+                        <div key={field.key}>
+                          <label className="text-xs font-semibold text-muted-foreground mb-1 block">{field.label}</label>
+                          <input
+                            value={bankingDetails[field.key]}
+                            onChange={e => setBankingDetails(p => ({ ...p, [field.key]: e.target.value }))}
+                            placeholder={field.placeholder}
+                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* eWallet */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> eWallet (MTC/MobiPay)</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">eWallet Number</label>
+                        <input value={bankingDetails.ewallet_number} onChange={e => setBankingDetails(p => ({ ...p, ewallet_number: e.target.value }))} placeholder="+264 81 000 0000" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Instructions</label>
+                        <input value={bankingDetails.ewallet_instructions} onChange={e => setBankingDetails(p => ({ ...p, ewallet_instructions: e.target.value }))} placeholder="Send and use your name as reference" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Pay2Cell */}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Pay2Cell</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Pay2Cell Number</label>
+                        <input value={bankingDetails.pay2cell_number} onChange={e => setBankingDetails(p => ({ ...p, pay2cell_number: e.target.value }))} placeholder="+264 81 000 0000" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Instructions</label>
+                        <input value={bankingDetails.pay2cell_instructions} onChange={e => setBankingDetails(p => ({ ...p, pay2cell_instructions: e.target.value }))} placeholder="Pay via Pay2Cell and use your name as reference" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Services section header (with add button) */}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-display font-bold text-lg flex items-center gap-2"><Briefcase className="w-4 h-4 text-secondary" /> Services & Pricing</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Manage service catalogue and per-vehicle pricing</p>
+              </div>
+              <button
+                onClick={() => { setShowServiceForm(true); setEditingServiceId(null); setServiceForm(emptyServiceForm()); }}
+                className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 transition flex items-center gap-2 shadow-orange shrink-0"
+              >
+                <Plus className="w-4 h-4" /> Add Service
+              </button>
+            </div>
 
             {/* Service form */}
             <AnimatePresence>
@@ -1510,25 +1770,25 @@ const AdminDashboard = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Price – Small (N$)</label>
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Small Price (N$)</label>
                       <input type="number" min={0} value={serviceForm.price_small}
                         onChange={e => setServiceForm({ ...serviceForm, price_small: +e.target.value })}
                         className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Price – Large (N$)</label>
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Large Price (N$)</label>
                       <input type="number" min={0} value={serviceForm.price_large}
                         onChange={e => setServiceForm({ ...serviceForm, price_large: +e.target.value })}
                         className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Price – XL (N$)</label>
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">XL Price (N$)</label>
                       <input type="number" min={0} value={serviceForm.price_xl}
                         onChange={e => setServiceForm({ ...serviceForm, price_xl: +e.target.value })}
                         className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Price – Truck (N$)</label>
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5 block">Truck Price (N$)</label>
                       <input type="number" min={0} value={serviceForm.price_truck}
                         onChange={e => setServiceForm({ ...serviceForm, price_truck: +e.target.value })}
                         className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition" />
@@ -1669,6 +1929,12 @@ const AdminDashboard = () => {
         {/* ══════════════════ PAYOUTS TAB ══════════════════ */}
         {tab === "payouts" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <ReceiptText className="w-5 h-5 text-secondary" /> Commission Payouts
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Generate monthly payslips, approve and record commission payments</p>
+            </div>
 
             {/* ── Header ── */}
             <div className="bg-card rounded-xl shadow-card p-5">
@@ -2051,6 +2317,12 @@ const AdminDashboard = () => {
         {/* ══════════════════ ABOUT & LEGAL TAB ══════════════════ */}
         {tab === "about" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-secondary" /> About & Legal
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Edit legal documents, terms, and team member profiles</p>
+            </div>
 
             {legalLoading ? (
               <div className="flex items-center justify-center py-16">
@@ -2263,9 +2535,9 @@ const AdminDashboard = () => {
             )}
           </motion.div>
         )}
-      </div>
 
-{/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
+
+            {/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
             <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -2275,7 +2547,7 @@ const AdminDashboard = () => {
                   <div>
                     <p className="font-display font-bold">Booking Timeslots</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Manage which time slots customers can choose when booking. Changes apply instantly.
+                      Manage which time slots customers see when booking. Changes take effect immediately.
                     </p>
                   </div>
                 </div>
@@ -2289,7 +2561,6 @@ const AdminDashboard = () => {
               <div className="px-5 py-4 space-y-2">
                 {timeslots.map((slot, idx) => (
                   <div key={slot.value + idx} className={`flex items-center gap-3 p-3 rounded-xl border ${slot.is_vip ? "border-orange-200 bg-orange-50/50 dark:bg-orange-900/10" : "border-border bg-muted/30"}`}>
-                    {/* Drag handle indicator */}
                     <div className="flex flex-col gap-0.5 shrink-0 opacity-30">
                       <div className="w-4 h-0.5 bg-foreground rounded-full" />
                       <div className="w-4 h-0.5 bg-foreground rounded-full" />
@@ -2302,143 +2573,93 @@ const AdminDashboard = () => {
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${slot.is_vip ? "text-orange-600 bg-orange-100 dark:bg-orange-900/30" : "text-muted-foreground bg-muted"}`}>
                       {slot.is_vip ? "⭐ VIP" : "Standard"}
                     </span>
-                    {/* Move up / down */}
                     <div className="flex flex-col gap-0.5 shrink-0">
-                      <button
-                        disabled={idx === 0}
-                        onClick={() => {
-                          const s = [...timeslots];
-                          [s[idx-1], s[idx]] = [s[idx], s[idx-1]];
-                          setTimeslots(s);
-                        }}
-                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20"
-                      >
+                      <button disabled={idx === 0} onClick={() => { const s = [...timeslots]; [s[idx-1], s[idx]] = [s[idx], s[idx-1]]; setTimeslots(s); }}
+                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20">
                         <ChevronUp className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        disabled={idx === timeslots.length - 1}
-                        onClick={() => {
-                          const s = [...timeslots];
-                          [s[idx], s[idx+1]] = [s[idx+1], s[idx]];
-                          setTimeslots(s);
-                        }}
-                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20"
-                      >
+                      <button disabled={idx === timeslots.length - 1} onClick={() => { const s = [...timeslots]; [s[idx], s[idx+1]] = [s[idx+1], s[idx]]; setTimeslots(s); }}
+                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20">
                         <ChevronDown className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <button
-                      onClick={() => setTimeslots(prev => prev.filter((_, i) => i !== idx))}
-                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 hover:bg-destructive/20 transition"
-                    >
+                    <button onClick={() => setTimeslots(prev => prev.filter((_, i) => i !== idx))}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 hover:bg-destructive/20 transition">
                       <Trash2 className="w-3.5 h-3.5 text-destructive" />
                     </button>
                   </div>
                 ))}
 
-                {/* Add new slot form */}
+                {/* Add new slot */}
                 <div className="mt-4 p-4 rounded-xl border-2 border-dashed border-border bg-muted/20 space-y-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Add New Timeslot</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="text-xs font-semibold text-muted-foreground block mb-1">Time Value *</label>
-                      <input
-                        placeholder="e.g. 12:00-13:30"
-                        value={newSlotValue}
-                        onChange={e => setNewSlotValue(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
-                      />
+                      <input placeholder="e.g. 12:00-13:30" value={newSlotValue} onChange={e => setNewSlotValue(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-muted-foreground block mb-1">Display Label *</label>
-                      <input
-                        placeholder="e.g. 12:00 – 13:30"
-                        value={newSlotLabel}
-                        onChange={e => setNewSlotLabel(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
+                      <input placeholder="e.g. 12:00 – 13:30" value={newSlotLabel} onChange={e => setNewSlotLabel(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
                     <div className="flex items-end gap-3">
                       <label className="flex items-center gap-2 cursor-pointer pb-2">
-                        <input
-                          type="checkbox"
-                          checked={newSlotIsVip}
-                          onChange={e => setNewSlotIsVip(e.target.checked)}
-                          className="w-4 h-4 accent-secondary"
-                        />
+                        <input type="checkbox" checked={newSlotIsVip} onChange={e => setNewSlotIsVip(e.target.checked)} className="w-4 h-4 accent-secondary" />
                         <span className="text-sm font-semibold">VIP slot</span>
                       </label>
-                      <button
-                        onClick={() => {
-                          const value = newSlotValue.trim();
-                          const label = newSlotLabel.trim();
-                          if (!value || !label) { setTimeslotMsg("Both value and label are required."); return; }
-                          if (timeslots.some(s => s.value === value)) { setTimeslotMsg("A slot with this value already exists."); return; }
-                          const finalValue = newSlotIsVip && !value.startsWith("VIP") ? `VIP ${value}` : value;
-                          setTimeslots(prev => [...prev, { value: finalValue, label, is_vip: newSlotIsVip }]);
-                          setNewSlotValue(""); setNewSlotLabel(""); setNewSlotIsVip(false);
-                          setTimeslotMsg(null);
-                        }}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-bold hover:opacity-90 transition mb-0.5"
-                      >
+                      <button onClick={() => {
+                        const value = newSlotValue.trim(); const label = newSlotLabel.trim();
+                        if (!value || !label) { setTimeslotMsg("Both value and label are required."); return; }
+                        if (timeslots.some(s => s.value === value)) { setTimeslotMsg("A slot with this value already exists."); return; }
+                        const finalValue = newSlotIsVip && !value.startsWith("VIP") ? `VIP ${value}` : value;
+                        setTimeslots(prev => [...prev, { value: finalValue, label, is_vip: newSlotIsVip }]);
+                        setNewSlotValue(""); setNewSlotLabel(""); setNewSlotIsVip(false); setTimeslotMsg(null);
+                      }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-bold hover:opacity-90 transition mb-0.5">
                         <Plus className="w-4 h-4" /> Add
                       </button>
                     </div>
                   </div>
                   {timeslotMsg && <p className="text-xs text-destructive">{timeslotMsg}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    Time value format: <code className="font-mono bg-muted px-1 rounded">HH:MM-HH:MM</code> for standard, or <code className="font-mono bg-muted px-1 rounded">VIP HH:MM-HH:MM</code> for VIP slots.
-                  </p>
                 </div>
 
-                {/* Save button */}
                 <div className="flex items-center justify-between pt-2">
-                  <button
-                    onClick={() => { setTimeslots(DEFAULT_TIMESLOTS); setTimeslotMsg("Timeslots reset to defaults."); }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline transition"
-                  >
+                  <button onClick={() => { setTimeslots(DEFAULT_TIMESLOTS); setTimeslotMsg("Reset to defaults."); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline transition">
                     Reset to defaults
                   </button>
-                  <button
-                    disabled={timeslotSaving}
-                    onClick={async () => {
-                      setTimeslotSaving(true);
-                      setTimeslotMsg(null);
-                      try {
-                        await saveTimeslots(timeslots);
-                        setTimeslotSaved(true);
-                        setTimeslotMsg("Timeslots saved. Customers will see the updated slots on their next page load.");
-                        setTimeout(() => { setTimeslotSaved(false); setTimeslotMsg(null); }, 4000);
-                        auditLog(adminUserId, "settings.timeslots_updated", "settings", undefined, { count: timeslots.length });
-                      } catch (e: any) {
-                        setTimeslotMsg("Failed to save: " + (e?.message ?? "Unknown error"));
-                      } finally {
-                        setTimeslotSaving(false);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50 shadow-orange"
-                    style={{ background: "#FF8C00" }}
-                  >
-                    {timeslotSaving
-                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
-                      : <><Save className="w-4 h-4" /> Save Timeslots</>}
+                  <button disabled={timeslotSaving} onClick={async () => {
+                    setTimeslotSaving(true); setTimeslotMsg(null);
+                    try {
+                      await saveTimeslots(timeslots);
+                      setTimeslotSaved(true);
+                      setTimeslotMsg("Timeslots saved successfully.");
+                      setTimeout(() => { setTimeslotSaved(false); setTimeslotMsg(null); }, 4000);
+                      auditLog(adminUserId, "settings.timeslots_updated", "settings", undefined, { count: timeslots.length });
+                    } catch (e: any) {
+                      setTimeslotMsg("Failed to save: " + (e?.message ?? "Unknown error"));
+                    } finally { setTimeslotSaving(false); }
+                  }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50 shadow-orange" style={{ background: "#FF8C00" }}>
+                    {timeslotSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> Save Timeslots</>}
                   </button>
                 </div>
                 {timeslotMsg && (
-                  <p className={`text-xs ${timeslotMsg.startsWith("Failed") ? "text-destructive" : "text-green-600 font-medium"}`}>
-                    {timeslotMsg}
-                  </p>
+                  <p className={`text-xs ${timeslotMsg.startsWith("Failed") ? "text-destructive" : "text-green-600 font-medium"}`}>{timeslotMsg}</p>
                 )}
               </div>
             </div>
 
-          </div>
-        )}
-
       {/* ══════════════════ LOYALTY TAB ══════════════════ */}
       {/* Always mounted after first open to prevent content flash on re-visit */}
-      <div className={`relative z-10 ${tab === "loyalty" ? "block" : "hidden"}`}>
+      <div className={tab === "loyalty" ? "block" : "hidden"}>
           <div className="space-y-5">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <Award className="w-5 h-5 text-secondary" /> Loyalty Program
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Customer points, tiers, free wash redemptions, and referrals</p>
+            </div>
             {/* ── Referral System Toggle ── */}
             <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
               <div className="px-5 py-4 flex items-center justify-between gap-4">
@@ -2450,8 +2671,8 @@ const AdminDashboard = () => {
                     <p className="font-display font-bold text-foreground">Referral System</p>
                     <p className="text-xs font-medium text-foreground/70 mt-0.5">
                       {referralEnabled
-                        ? "Active — customers can share codes and earn +25 pts per referral"
-                        : "Disabled — referral code field hidden on signup & user dashboard"}
+                        ? "Active. Customers can share codes and earn 25 points per referral."
+                        : "Disabled. The referral code field is hidden on signup and the user dashboard."}
                     </p>
                   </div>
                 </div>
@@ -2501,63 +2722,6 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* ── WhatsApp Agent Number Setting ── */}
-            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-              <div className="flex items-start justify-between gap-4 p-5">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/30">
-                    <MessageCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm">Chatbot WhatsApp Number</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Phone number Winny redirects customers to when they request a live agent.
-                      Include country code, no spaces or dashes (e.g. 264812781123).
-                    </p>
-                    <div className="flex gap-2 mt-3 items-center">
-                      <span className="text-sm text-muted-foreground select-none">+</span>
-                      <input
-                        value={waNumberInput}
-                        onChange={e => { setWaNumberInput(e.target.value.replace(/\D/g,"")); setWaNumberSaved(false); }}
-                        placeholder="264812781123"
-                        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition font-mono"
-                        maxLength={15}
-                      />
-                      <button
-                        disabled={waNumberSaving || !waNumberInput.trim()}
-                        onClick={async () => {
-                          setWaNumberSaving(true);
-                          try {
-                            await setSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER, waNumberInput.trim());
-                            setWaNumber(waNumberInput.trim());
-                            setWaNumberSaved(true);
-                            setTimeout(() => setWaNumberSaved(false), 3000);
-                            auditLog(adminUserId, "settings.whatsapp_updated", "settings", undefined, { number: waNumberInput.trim() });
-                          } catch (e: any) {
-                            alert("Failed to save: " + e?.message);
-                          } finally {
-                            setWaNumberSaving(false);
-                          }
-                        }}
-                        className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {waNumberSaving
-                          ? <Loader2 className="w-4 h-4 animate-spin" />
-                          : waNumberSaved
-                          ? <><CheckCircle className="w-4 h-4" /> Saved!</>
-                          : <><Save className="w-4 h-4" /> Save</>}
-                      </button>
-                    </div>
-                    {waNumber && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Current: <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="text-green-600 font-mono hover:underline">+{waNumber}</a>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Header */}
@@ -2700,7 +2864,7 @@ const AdminDashboard = () => {
                           <span className={`ml-2 inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${tier.bg} ${tier.color}`}>
                             {tier.emoji} {tier.label}
                           </span>
-                          <ChevronDown className={`w-4 h-4 text-foreground/50 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          <ChevronDownIcon className={`w-4 h-4 text-foreground/50 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                         </button>
 
                         {/* Expanded detail */}
@@ -2786,13 +2950,25 @@ const AdminDashboard = () => {
 
       {/* ══════════════════ MARKETING ADS TAB ══════════════════ */}
       {/* Always mounted - prevents data-reload flash on tab switch */}
-      <div className={`relative z-10 ${tab === "ads" ? "block" : "hidden"}`}>
+      <div className={tab === "ads" ? "block" : "hidden"}>
+        <div className="pb-4 mb-5 border-b border-border">
+          <h2 className="font-display font-bold text-xl flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-secondary" /> Marketing
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Promotional banners and advertisements displayed to customers</p>
+        </div>
         <AdminAds />
       </div>
 
       {/* ══════════════════ SECURITY TAB ══════════════════ */}
       {tab === "security" && (
-        <div className="relative z-10 px-3 sm:px-6 pb-8 space-y-6">
+        <div className="space-y-6 pb-6">
+          <div className="pb-4 border-b border-border">
+            <h2 className="font-display font-bold text-xl flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-secondary" /> Security
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Active abuse blocks, rate-limiting events, and login security logs</p>
+          </div>
 
           {/* Active Blocks */}
           <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
@@ -2929,19 +3105,58 @@ const AdminDashboard = () => {
       {/* ══ Analytics tab ══════════════════════════════════════════════════════════ */}
       {tab === "analytics" && (
         <div>
+          <div className="mb-5 pb-4 border-b border-border">
+            <h2 className="font-display font-bold text-xl flex items-center gap-2">
+              <BarChart2 className="w-5 h-5 text-secondary" /> Analytics
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Revenue trends, booking stats, and team performance</p>
+          </div>
           <AdminAnalytics />
+        </div>
+      )}
+
+      {/* ══ Payments tab ══════════════════════════════════════════════════════════ */}
+      {tab === "payments" && (
+        <div className="space-y-5">
+          <div className="pb-4 border-b border-border">
+            <h2 className="font-display font-bold text-xl flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-secondary" /> Payment Verification
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Approve or reject EFT / mobile proof of payment submissions</p>
+          </div>
+          <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
+            <AdminPaymentVerification />
+          </div>
+        </div>
+      )}
+
+      {/* ══ Subscriptions tab ══════════════════════════════════════════════════════ */}
+      {tab === "subscriptions" && (
+        <div className="space-y-5">
+          <div className="pb-4 border-b border-border">
+            <h2 className="font-display font-bold text-xl flex items-center gap-2">
+              <Zap className="w-5 h-5 text-secondary" /> Subscriptions
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage customer subscription plans and statuses</p>
+          </div>
+          <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
+            <AdminSubscriptions />
+          </div>
         </div>
       )}
 
       {/* ══ Audit Log tab ══════════════════════════════════════════════════════════ */}
       {tab === "audit" && (
         <div className="space-y-4">
+          <div className="pb-4 border-b border-border">
+            <h2 className="font-display font-bold text-xl flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-secondary" /> Audit Log
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Tamper-proof record of every admin action — entries cannot be edited or deleted</p>
+          </div>
           <div className="bg-card rounded-xl shadow-card overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <div>
-                <h3 className="font-bold text-sm">Admin Action Log</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Tamper-proof record of every mutating admin action. Entries cannot be edited or deleted.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">Showing last 300 entries</p>
               <button
                 onClick={() => {
                   setAuditLogsLoading(true);
@@ -3013,627 +3228,9 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ══ Admin image lightbox ══ */}
-      <AnimatePresence>
-        {imagesLightbox && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-black/90 flex items-center justify-center p-4"
-            onClick={() => setImagesLightbox(null)}
-          >
-            <button
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
-              onClick={() => setImagesLightbox(null)}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <motion.img
-              initial={{ scale: 0.85 }} animate={{ scale: 1 }}
-              src={imagesLightbox.signedUrl || ""}
-              alt="Job photo"
-              className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {tab === "payments" && (
-        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
-          <AdminPaymentVerification />
-        </div>
-      )}
-
-      {tab === "subscriptions" && (
-        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
-          <AdminSubscriptions />
-        </div>
-      )}
-
-      <CopyrightFooter />
-    </div>
-  );
-};
-
-export default AdminDashboar
-
-      {/* ══════════════════ LOYALTY TAB ══════════════════ */}
-      {/* Always mounted after first open to prevent content flash on re-visit */}
-      <div className={`relative z-10 ${tab === "loyalty" ? "block" : "hidden"}`}>
-          <div className="space-y-5">
-            {/* ── Referral System Toggle ── */}
-            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-              <div className="px-5 py-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${referralEnabled ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"}`}>
-                    <Gift className={`w-5 h-5 ${referralEnabled ? "text-green-600" : "text-foreground/40"}`} />
-                  </div>
-                  <div>
-                    <p className="font-display font-bold text-foreground">Referral System</p>
-                    <p className="text-xs font-medium text-foreground/70 mt-0.5">
-                      {referralEnabled
-                        ? "Active — customers can share codes and earn +25 pts per referral"
-                        : "Disabled — referral code field hidden on signup & user dashboard"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${referralEnabled ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-muted text-foreground/50"}`}>
-                    {referralEnabled ? "ON" : "OFF"}
-                  </span>
-                  <button
-                    disabled={referralSaving}
-                    onClick={async () => {
-                      setReferralSaving(true);
-                      try {
-                        const next = !referralEnabled;
-                        await setBoolSetting(SETTINGS_KEYS.REFERRAL_SYSTEM_ENABLED, next);
-                        setReferralEnabled(next);
-                        auditLog(adminUserId, "settings.referral_toggled", "settings", undefined, { enabled: next });
-                      } catch (e: any) {
-                        alert("Failed to update referral setting: " + e?.message);
-                      } finally {
-                        setReferralSaving(false);
-                      }
-                    }}
-                    className="transition"
-                    title={referralEnabled ? "Deactivate referral system" : "Activate referral system"}
-                  >
-                    {referralSaving
-                      ? <Loader2 className="w-8 h-8 animate-spin text-secondary" />
-                      : referralEnabled
-                      ? <ToggleRight className="w-10 h-10 text-green-500" />
-                      : <ToggleLeft  className="w-10 h-10 text-foreground/30" />
-                    }
-                  </button>
-                </div>
-              </div>
-              {referralEnabled && (
-                <div className="px-5 pb-4 pt-0">
-                  <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                    {[
-                      { icon: "🎁", text: "Referral code field shown on Sign Up page" },
-                      { icon: "📊", text: "Referral codes & stats shown in user Loyalty tab" },
-                      { icon: "💰", text: "Referrer earns +25 pts per successful signup" },
-                    ].map(item => (
-                      <div key={item.text} className="flex items-start gap-2 text-green-800 dark:text-green-400 font-medium">
-                        <span>{item.icon}</span><span>{item.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ── WhatsApp Agent Number Setting ── */}
-            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-              <div className="flex items-start justify-between gap-4 p-5">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/30">
-                    <MessageCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm">Chatbot WhatsApp Number</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Phone number Winny redirects customers to when they request a live agent.
-                      Include country code, no spaces or dashes (e.g. 264812781123).
-                    </p>
-                    <div className="flex gap-2 mt-3 items-center">
-                      <span className="text-sm text-muted-foreground select-none">+</span>
-                      <input
-                        value={waNumberInput}
-                        onChange={e => { setWaNumberInput(e.target.value.replace(/\D/g,"")); setWaNumberSaved(false); }}
-                        placeholder="264812781123"
-                        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition font-mono"
-                        maxLength={15}
-                      />
-                      <button
-                        disabled={waNumberSaving || !waNumberInput.trim()}
-                        onClick={async () => {
-                          setWaNumberSaving(true);
-                          try {
-                            await setSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER, waNumberInput.trim());
-                            setWaNumber(waNumberInput.trim());
-                            setWaNumberSaved(true);
-                            setTimeout(() => setWaNumberSaved(false), 3000);
-                            auditLog(adminUserId, "settings.whatsapp_updated", "settings", undefined, { number: waNumberInput.trim() });
-                          } catch (e: any) {
-                            alert("Failed to save: " + e?.message);
-                          } finally {
-                            setWaNumberSaving(false);
-                          }
-                        }}
-                        className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {waNumberSaving
-                          ? <Loader2 className="w-4 h-4 animate-spin" />
-                          : waNumberSaved
-                          ? <><CheckCircle className="w-4 h-4" /> Saved!</>
-                          : <><Save className="w-4 h-4" /> Save</>}
-                      </button>
-                    </div>
-                    {waNumber && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Current: <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="text-green-600 font-mono hover:underline">+{waNumber}</a>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-display font-bold flex items-center gap-2">
-                  <Award className="w-5 h-5 text-secondary" /> Loyalty Overview
-                </h2>
-                <p className="text-sm font-medium text-foreground/80 mt-0.5">
-                  {loyaltyRows.length} customer{loyaltyRows.length !== 1 ? "s" : ""} enrolled
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Filter buttons */}
-                {([
-                  { key: "all",       label: "All Customers" },
-                  { key: "available", label: "Has Free Washes" },
-                  { key: "top",       label: "Top Earners" },
-                ] as const).map(f => (
-                  <button key={f.key} onClick={() => setLoyaltyFilter(f.key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                      loyaltyFilter === f.key
-                        ? "bg-secondary text-secondary-foreground border-secondary"
-                        : "bg-background border-border text-foreground/70 hover:border-secondary/50"
-                    }`}>
-                    {f.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => { setLoyaltyLoading(true); fetchAdminLoyaltyOverview().then(setLoyaltyRows).catch(() => {}).finally(() => setLoyaltyLoading(false)); }}
-                  className="p-2 rounded-lg border border-border hover:bg-muted transition text-foreground/70 hover:text-foreground">
-                  <RefreshCwIcon className={`w-4 h-4 ${loyaltyLoading ? "animate-spin" : ""}`} />
-                </button>
-                <button
-                  onClick={async () => {
-                    setExpiringLoading(true);
-                    try {
-                      const n = await expireStaleRedemptions();
-                      alert(`Expired ${n} stale redemption${n !== 1 ? "s" : ""} and refunded their points.`);
-                      fetchAdminLoyaltyOverview().then(setLoyaltyRows).catch(() => {});
-                    } catch (e: any) { alert("Error: " + e?.message); }
-                    setExpiringLoading(false);
-                  }}
-                  disabled={expiringLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-900/20 text-xs font-bold hover:bg-amber-100 transition disabled:opacity-50">
-                  <Crown className={`w-3.5 h-3.5 ${expiringLoading ? "animate-spin" : ""}`} />
-                  Expire Stale
-                </button>
-              </div>
-            </div>
-
-            {/* Summary cards */}
-            {loyaltyRows.length > 0 && (() => {
-              const totalLifetime   = loyaltyRows.reduce((s, r) => s + (r.lifetime_points || 0), 0);
-              const totalFreeWashes = loyaltyRows.reduce((s, r) => s + (r.free_washes_available || 0), 0);
-              const topTier         = loyaltyRows.filter(r => r.tier === "Platinum").length;
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: "Total Lifetime Pts", value: totalLifetime.toLocaleString(), icon: TrendingUp, color: "text-purple-500" },
-                    { label: "Free Washes Pending", value: totalFreeWashes, icon: Gift, color: "text-green-600" },
-                    { label: "Platinum Customers", value: topTier, icon: Crown, color: "text-yellow-600" },
-                    { label: "Total Customers", value: loyaltyRows.length, icon: Users, color: "text-secondary" },
-                  ].map(s => (
-                    <div key={s.label} className="bg-card rounded-xl p-4 shadow-card">
-                      <s.icon className={`w-4 h-4 ${s.color} mb-2`} />
-                      <p className={`text-2xl font-display font-bold ${s.color}`}>{s.value}</p>
-                      <p className="text-xs font-semibold text-foreground/70 mt-0.5">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* Customer table */}
-            {loyaltyLoading && loyaltyRows.length === 0 ? (
-              <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-secondary" /></div>
-            ) : (() => {
-              const filtered = loyaltyRows
-                .filter(r => {
-                  if (loyaltyFilter === "available") return (r.free_washes_available || 0) > 0;
-                  if (loyaltyFilter === "top")       return (r.lifetime_points || 0) >= 100;
-                  return true;
-                })
-                .sort((a, b) => {
-                  if (loyaltyFilter === "available") return (b.free_washes_available || 0) - (a.free_washes_available || 0);
-                  return (b.lifetime_points || 0) - (a.lifetime_points || 0);
-                });
-
-              if (filtered.length === 0) return (
-                <div className="text-center py-12 text-foreground/70">
-                  <Award className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="font-semibold text-foreground">No customers match this filter</p>
-                </div>
-              );
-
-              return (
-                <div className="space-y-2">
-                  {filtered.map((row) => {
-                    const tier    = TIER_CONFIG[row.tier] || TIER_CONFIG.Bronze;
-                    const isOpen  = expandedLoyalty === row.user_id;
-                    const redemps = userRedemptions[row.user_id];
-
-                    return (
-                      <div key={row.user_id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                        {/* Row header */}
-                        <button
-                          onClick={async () => {
-                            if (isOpen) { setExpandedLoyalty(null); return; }
-                            setExpandedLoyalty(row.user_id);
-                            if (!userRedemptions[row.user_id]) {
-                              const r = await fetchUserRedemptions(row.user_id).catch(() => [] as FreeWashRedemption[]);
-                              setUserRedemptions(prev => ({ ...prev, [row.user_id]: r }));
-                            }
-                          }}
-                          className="w-full px-3 sm:px-5 py-3 sm:py-4 flex items-center gap-2 sm:gap-4 hover:bg-muted/30 transition text-left">
-                          {/* Tier badge */}
-                          <span className={`text-xl shrink-0`}>{tier.emoji}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold truncate">{row.full_name || "—"}</p>
-                            <p className="text-xs text-foreground/70 truncate">{row.email}</p>
-                          </div>
-                          {/* Key stats inline */}
-                          <div className="flex items-center gap-3 sm:gap-5 text-sm shrink-0">
-                            <div className="text-center">
-                              <p className={`font-display font-bold text-sm sm:text-base ${tier.color}`}>{(row.lifetime_points || 0).toLocaleString()}</p>
-                              <p className="text-xs font-semibold text-foreground/70">lifetime</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="font-display font-bold text-sm sm:text-base text-secondary">{(row.redeemable_points || 0).toLocaleString()}</p>
-                              <p className="text-xs font-semibold text-foreground/70">redeemable</p>
-                            </div>
-                            <div className="text-center">
-                              <p className={`font-display font-bold text-sm sm:text-base ${(row.free_washes_available || 0) > 0 ? "text-green-600" : "text-muted-foreground"}`}>
-                                {row.free_washes_available || 0}
-                              </p>
-                              <p className="text-xs font-semibold text-foreground/70">avail.</p>
-                            </div>
-                          </div>
-                          <span className={`ml-2 inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${tier.bg} ${tier.color}`}>
-                            {tier.emoji} {tier.label}
-                          </span>
-                          <ChevronDown className={`w-4 h-4 text-foreground/50 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                        </button>
-
-                        {/* Expanded detail */}
-                        <AnimatePresence>
-                          {isOpen && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
-                              className="border-t border-border overflow-hidden">
-                              <div className="px-5 py-4 space-y-4">
-                                {/* Full stats grid */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                  {[
-                                    { label: "Lifetime Points",   value: (row.lifetime_points || 0).toLocaleString(),   icon: TrendingUp,    color: "text-purple-500" },
-                                    { label: "Redeemable Points", value: (row.redeemable_points || 0).toLocaleString(), icon: Zap,            color: "text-secondary" },
-                                    { label: "Completed Bookings",value: row.completed_bookings_count || 0,              icon: CheckCircle,    color: "text-blue-500" },
-                                    { label: "Washes Earned",     value: row.free_washes_earned || 0,                   icon: Gift,           color: "text-green-600" },
-                                    { label: "Washes Used",       value: row.free_washes_used || 0,                     icon: CheckCircle,    color: "text-foreground/60" },
-                                    { label: "Available Washes",  value: row.free_washes_available || 0,                icon: Sparkles,       color: (row.free_washes_available || 0) > 0 ? "text-green-600" : "text-foreground/50" },
-                                  ].map(s => (
-                                    <div key={s.label} className="bg-muted/30 rounded-lg p-3">
-                                      <s.icon className={`w-3.5 h-3.5 ${s.color} mb-1`} />
-                                      <p className={`font-display font-bold text-lg ${s.color}`}>{s.value}</p>
-                                      <p className="text-xs font-semibold text-foreground/70">{s.label}</p>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {/* Referral code */}
-                                {row.referral_code && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <span className="text-foreground/70 font-semibold">Referral code:</span>
-                                    <span className="font-mono font-bold text-secondary">{row.referral_code}</span>
-                                    <span className="text-foreground/70 text-xs font-medium">· {row.total_referrals || 0} referrals</span>
-                                  </div>
-                                )}
-
-                                {/* Redemption history */}
-                                <div>
-                                  <p className="text-xs font-bold uppercase tracking-wider text-foreground/70 mb-2">Redemption History</p>
-                                  {!redemps ? (
-                                    <div className="flex items-center gap-2 text-sm text-foreground/70 py-2">
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
-                                    </div>
-                                  ) : redemps.length === 0 ? (
-                                    <p className="text-sm text-foreground/70">No redemptions yet.</p>
-                                  ) : (
-                                    <div className="space-y-1.5">
-                                      {redemps.map(r => {
-                                        const sc = REDEMPTION_STATUS[r.status] || REDEMPTION_STATUS.cancelled;
-                                        return (
-                                          <div key={r.id} className="flex items-center justify-between gap-3 text-sm bg-muted/20 rounded-lg px-3 py-2">
-                                            <div>
-                                              <span className="font-semibold">Free Standard Wash</span>
-                                              <span className="text-foreground/70 text-xs ml-2 font-medium">
-                                                {new Date(r.redeemed_at).toLocaleDateString("en-NA", { day:"numeric", month:"short", year:"numeric" })}
-                                              </span>
-                                            </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                              {r.status === "reserved" && (
-                                                <span className="text-xs text-amber-600">{formatExpiry(r.expires_at)}</span>
-                                              )}
-                                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sc.color}`}>{sc.label}</span>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-
-      {/* ══════════════════ MARKETING ADS TAB ══════════════════ */}
-      {/* Always mounted - prevents data-reload flash on tab switch */}
-      <div className={`relative z-10 ${tab === "ads" ? "block" : "hidden"}`}>
-        <AdminAds />
-      </div>
-
-      {/* ══════════════════ SECURITY TAB ══════════════════ */}
-      {tab === "security" && (
-        <div className="relative z-10 px-3 sm:px-6 pb-8 space-y-6">
-
-          {/* Active Blocks */}
-          <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
-              <div>
-                <h3 className="font-bold text-sm">Active Abuse Blocks</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Identifiers blocked for excessive failed attempts</p>
-              </div>
-              <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive">
-                {abuseBlocks.filter(b => new Date(b.expires_at) > new Date()).length} active
-              </span>
-            </div>
-            {abuseBlocks.filter(b => new Date(b.expires_at) > new Date()).length === 0 ? (
-              <div className="px-5 py-8 text-center text-muted-foreground text-sm">
-                <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                No active blocks
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {abuseBlocks.filter(b => new Date(b.expires_at) > new Date()).map((b: any) => (
-                  <div key={b.id} className="px-5 py-3 flex items-center gap-3 flex-wrap">
-                    <div className="font-mono text-xs bg-muted px-2 py-1 rounded">{b.identifier}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-destructive">{b.reason}</p>
-                      <p className="text-xs text-muted-foreground">Expires: {new Date(b.expires_at).toLocaleString("en-NA")}</p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        await supabase.from("abuse_blocks").delete().eq("id", b.id);
-                        setAbuseBlocks(prev => prev.filter(x => x.id !== b.id));
-                        auditLog(adminUserId, "security.abuse_unblocked", "abuse_block", b.id, { identifier: b.identifier, reason: b.reason });
-                      }}
-                      className="px-3 py-1 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition"
-                    >
-                      Unblock
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Security Logs */}
-          <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <ShieldCheck className="w-5 h-5 text-secondary shrink-0" />
-                <div>
-                  <h3 className="font-bold text-sm">Security Logs</h3>
-                  <p className="text-xs text-muted-foreground">Last 200 events</p>
-                </div>
-              </div>
-              <div className="flex gap-1.5">
-                {(["all","allowed","blocked"] as const).map(f => (
-                  <button key={f} onClick={() => setSecLogFilter(f)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                      secLogFilter === f
-                        ? f === "blocked" ? "bg-destructive text-white border-destructive"
-                          : f === "allowed" ? "bg-green-600 text-white border-green-600"
-                          : "bg-primary text-primary-foreground border-primary"
-                        : "bg-background border-border text-muted-foreground hover:border-border"
-                    }`}>
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-                <button
-                  onClick={() => {
-                    setSecLogsLoading(true);
-                    supabase.from("security_logs").select("*").order("created_at", { ascending: false }).limit(200)
-                      .then(r => setSecLogs(r.data ?? [])).finally(() => setSecLogsLoading(false));
-                  }}
-                  className="p-1.5 rounded-lg border border-border hover:bg-muted transition"
-                >
-                  <RefreshCwIcon className={`w-4 h-4 ${secLogsLoading ? "animate-spin" : ""}`} />
-                </button>
-              </div>
-            </div>
-            {secLogsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-secondary" />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-muted/40 border-b border-border">
-                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Time</th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Action</th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">Result</th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground hidden sm:table-cell">Fingerprint</th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground hidden md:table-cell">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {secLogs
-                      .filter(l => secLogFilter === "all" || l.result === secLogFilter)
-                      .map((log: any) => (
-                        <tr key={log.id} className={`hover:bg-muted/20 transition ${log.result === "blocked" ? "bg-red-50/40 dark:bg-red-900/10" : ""}`}>
-                          <td className="px-4 py-2 font-mono whitespace-nowrap text-muted-foreground">
-                            {new Date(log.created_at).toLocaleString("en-NA", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" })}
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className="px-2 py-0.5 rounded-full font-bold text-[10px] bg-primary/10 text-primary uppercase tracking-wide">
-                              {log.action}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${log.result === "allowed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}`}>
-                              {log.result}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 font-mono text-muted-foreground hidden sm:table-cell">
-                            {log.ip ?? "—"}
-                          </td>
-                          <td className="px-4 py-2 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
-                            {log.reason ?? "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    {secLogs.filter(l => secLogFilter === "all" || l.result === secLogFilter).length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No logs found</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ══ Analytics tab ══════════════════════════════════════════════════════════ */}
-      {tab === "analytics" && (
-        <div>
-          <AdminAnalytics />
-        </div>
-      )}
-
-      {/* ══ Audit Log tab ══════════════════════════════════════════════════════════ */}
-      {tab === "audit" && (
-        <div className="space-y-4">
-          <div className="bg-card rounded-xl shadow-card overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <div>
-                <h3 className="font-bold text-sm">Admin Action Log</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Tamper-proof record of every mutating admin action. Entries cannot be edited or deleted.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setAuditLogsLoading(true);
-                  supabase.from("admin_audit_log").select("*, admin:admin_id(full_name)").order("created_at", { ascending: false }).limit(300)
-                    .then(({ data }) => setAuditLogs(data ?? []))
-                    .catch(() => {}).finally(() => setAuditLogsLoading(false));
-                }}
-                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition"
-                title="Refresh"
-              >
-                <RefreshCwIcon className={`w-4 h-4 ${auditLogsLoading ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-            {auditLogsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : auditLogs.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground text-sm">
-                <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                No audit entries yet. Actions taken by admins will appear here.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/40">
-                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground">Time</th>
-                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground">Admin</th>
-                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground">Action</th>
-                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground hidden sm:table-cell">Target</th>
-                      <th className="px-4 py-2 text-left font-semibold text-muted-foreground hidden md:table-cell">Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {auditLogs.map((entry: any) => {
-                      const actionColor =
-                        entry.action.includes("deleted") ? "text-destructive bg-destructive/10" :
-                        entry.action.includes("paid") || entry.action.includes("approved") ? "text-success bg-success/10" :
-                        entry.action.includes("created") ? "text-info bg-info/10" :
-                        "text-foreground bg-muted";
-                      return (
-                        <tr key={entry.id} className="hover:bg-muted/20 transition">
-                          <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                            {new Date(entry.created_at).toLocaleString("en-NA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                          </td>
-                          <td className="px-4 py-2.5 font-medium truncate max-w-[100px]">
-                            {entry.admin?.full_name ?? entry.admin_id?.slice(0, 8) ?? "—"}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${actionColor}`}>
-                              {entry.action}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
-                            {entry.target_type ?? "—"}{entry.target_id ? ` #${entry.target_id.slice(0, 8)}` : ""}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell max-w-[220px] truncate">
-                            {entry.payload ? JSON.stringify(entry.payload).slice(0, 80) : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+          </div>{/* closes max-w-5xl content wrapper */}
+        </main>{/* closes main flex content area */}
+      </div>{/* closes flex row (sidebar + content) */}
 
       {/* ══ Admin image lightbox ══ */}
       <AnimatePresence>
@@ -3659,20 +3256,6 @@ export default AdminDashboar
           </motion.div>
         )}
       </AnimatePresence>
-
-      {tab === "payments" && (
-        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
-          <AdminPaymentVerification />
-        </div>
-      )}
-
-      {tab === "subscriptions" && (
-        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
-          <AdminSubscriptions />
-        </div>
-      )}
-
-      </div>
 
       <CopyrightFooter />
     </div>
