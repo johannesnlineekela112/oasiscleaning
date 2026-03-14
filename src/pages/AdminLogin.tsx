@@ -155,7 +155,6 @@ const AdminLogin = () => {
                   src={logo}
                   alt="Oasis Pure Cleaning CC"
                   className="h-36 sm:h-44 w-auto max-w-[300px] object-contain mx-auto mb-3"
-                  style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.18))" }}
                 />
               </button>
               <h2 className="font-display text-2xl font-bold">Admin Portal</h2>

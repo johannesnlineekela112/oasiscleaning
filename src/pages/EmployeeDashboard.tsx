@@ -75,10 +75,12 @@ const JobPhotos = ({
   bookingId,
   uploaderId,
   isCompleted,
+  isPaid = false,
 }: {
   bookingId:   string;
   uploaderId:  string;
   isCompleted: boolean;
+  isPaid?:     boolean;
 }) => {
   const [images,      setImages]      = useState<BookingImage[]>([]);
   const [staged,      setStaged]      = useState<StagedFile[]>([]);
@@ -184,7 +186,7 @@ const JobPhotos = ({
     }
   };
 
-  const canUpload = isCompleted && (images.length + staged.length) < MAX_IMAGES_PER_JOB;
+  const canUpload = (isCompleted || isPaid) && (images.length + staged.length) < MAX_IMAGES_PER_JOB;
   const hasStaged = staged.length > 0;
   const validStaged = staged.filter(s => !s.error);
 
@@ -199,13 +201,13 @@ const JobPhotos = ({
             <span className="ml-1">{images.length + staged.length}/{MAX_IMAGES_PER_JOB}</span>
           )}
         </h4>
-        {!isCompleted && (
-          <span className="text-xs text-muted-foreground italic">Complete booking first to upload photos</span>
+        {!isCompleted && !isPaid && (
+          <span className="text-xs text-muted-foreground italic">Payment required before uploading photos</span>
         )}
       </div>
 
       {/* Drop zone + Browse button */}
-      {isCompleted && canUpload && (
+      {canUpload && (
         <div
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -293,7 +295,7 @@ const JobPhotos = ({
         </div>
       ) : images.length === 0 && !hasStaged ? (
         <div className="text-center py-4 text-muted-foreground">
-          <p className="text-xs">{isCompleted ? "No uploaded photos yet" : "No photos uploaded"}</p>
+          <p className="text-xs">{isCompleted || isPaid ? "No photos uploaded yet" : "Upload available after payment"}</p>
         </div>
       ) : images.length > 0 ? (
         <>
@@ -507,7 +509,7 @@ const EmployeeDashboard = () => {
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-4 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
-            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
+            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" />
           </button>
           <div className="min-w-0">
             <h1 className="font-display font-bold text-sm sm:text-base leading-tight truncate">Oasis Pure Cleaning CC</h1>
@@ -686,6 +688,7 @@ const EmployeeDashboard = () => {
                             bookingId={b.id!}
                             uploaderId={userId}
                             isCompleted={b.status === "completed"}
+                            isPaid={b.paid === true}
                           />
                         </div>
                       )}

@@ -30,6 +30,7 @@ import { guardAction, recordFailure, isEmailVerified } from "@/lib/botProtection
 import PaymentPanel, { type PaymentMethod as PMethod, type PaymentSelection } from "@/components/PaymentPanel";
 import { SignUpBanner, SignUpModal } from "@/components/SignUpConversion";
 import { getBusinessSettings, type PaymentDetails } from "@/lib/businessService";
+import { getTimeslots, type TimeSlotSetting } from "@/lib/settingsService";
 import { supabase as supabaseClient } from "@/lib/supabase";
 
 // todayInNamibia() is the canonical "today" for this app.
@@ -131,7 +132,7 @@ const TimeSlotDropdown = ({
             transition={{ duration: 0.15 }}
             className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
           >
-            {TIME_SLOTS.map((slot) => {
+            {(dynamicSlots ?? TIME_SLOTS).map((slot) => {
               const booked = bookedSlots.includes(slot.value);
               const past   = pastSlots.includes(slot.value);
               // A slot is unavailable if it is booked OR past
@@ -293,6 +294,7 @@ const BookingPage = () => {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
   const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [dynamicSlots, setDynamicSlots] = useState<TimeSlotSetting[] | null>(null);
   const [showAbout,   setShowAbout]   = useState(false);
   const [aboutTab,    setAboutTab]    = useState<"about"|"team"|"tc">("about");
   const [tcAccepted,  setTcAccepted]  = useState(false);
@@ -429,6 +431,7 @@ const BookingPage = () => {
     fetchActiveAds("inline").then(setInlineAds).catch(() => {});
     fetchActiveAds("popup").then(setPopupAds).catch(() => {});
     fetchActiveAds("sidebar").then(setSidebarAds).catch(() => {});
+    getTimeslots().then(setDynamicSlots).catch(() => {});
   }, []);
 
   // Vehicle helpers
@@ -659,7 +662,7 @@ const BookingPage = () => {
       <div className="sticky top-0 z-50">
         <header className="bg-primary py-2.5 px-3 sm:px-6 flex items-center justify-between shadow-lg gap-2">
           <button onClick={() => window.location.reload()} className="flex items-center gap-2 min-w-0 cursor-pointer">
-          <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 sm:h-12 w-auto object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
+          <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 sm:h-12 w-auto object-contain flex-shrink-0" />
           <div className="min-w-0 hidden sm:block">
             <h1 className="text-primary-foreground font-display font-bold text-base sm:text-lg tracking-tight leading-tight">OASIS PURE CLEANING CC</h1>
             <p className="text-primary-foreground/70 text-xs font-medium tracking-wider uppercase">WE COME, YOU SHINE!</p>

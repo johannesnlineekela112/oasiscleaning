@@ -12,7 +12,7 @@ import {
   MessageCircle, Bell, Mail, Lock, Plus, Edit2, ToggleLeft, ToggleRight,
   ShieldCheck, Briefcase, X, BookOpen, Image, FileText, ChevronUp,
   Megaphone, AlertTriangle, Award, Gift, TrendingUp, Zap, Crown,
-  Sparkles, Filter, ChevronDown as ChevronDownIcon, RefreshCw as RefreshCwIcon,
+  Sparkles, Filter, RefreshCw as RefreshCwIcon,
   Camera, ImageIcon,
   FileSpreadsheet, Download, CheckSquare, Banknote, ReceiptText, BarChart2,
 } from "lucide-react";
@@ -47,7 +47,7 @@ import {
   MONTH_NAMES, monthName, STATUS_CONFIG as PAYOUT_STATUS_CONFIG,
 } from "@/lib/commissionService";
 import { getSessionUser, isAdmin, logout, getUserProfile } from "@/lib/authService";
-import { getBoolSetting, setBoolSetting, getSetting, setSetting, SETTINGS_KEYS } from "@/lib/settingsService";
+import { getBoolSetting, setBoolSetting, getSetting, setSetting, getTimeslots, saveTimeslots, DEFAULT_TIMESLOTS, SETTINGS_KEYS, type TimeSlotSetting } from "@/lib/settingsService";
 import { generatePayslipPdf } from "@/lib/payslipPdf";
 import { supabase } from "@/lib/supabase";
 import {
@@ -153,6 +153,15 @@ const AdminDashboard = () => {
   const [waNumberSaving,     setWaNumberSaving]     = useState(false);
   const [waNumberSaved,      setWaNumberSaved]      = useState(false);
 
+  // ── Timeslot manager state ─────────────────────────────────────────────
+  const [timeslots,        setTimeslots]        = useState<TimeSlotSetting[]>(DEFAULT_TIMESLOTS);
+  const [timeslotSaving,   setTimeslotSaving]   = useState(false);
+  const [timeslotSaved,    setTimeslotSaved]    = useState(false);
+  const [timeslotMsg,      setTimeslotMsg]      = useState<string | null>(null);
+  const [newSlotValue,     setNewSlotValue]     = useState("");
+  const [newSlotLabel,     setNewSlotLabel]     = useState("");
+  const [newSlotIsVip,     setNewSlotIsVip]     = useState(false);
+
   // Booking images: keyed by bookingId
   const [bookingImages,      setBookingImages]      = useState<Record<string, BookingImage[]>>({});
   const [imagesLoading,      setImagesLoading]      = useState<Record<string, boolean>>({});
@@ -253,11 +262,13 @@ const AdminDashboard = () => {
       fetchAdminLoyaltyOverview(),
       getBoolSetting(SETTINGS_KEYS.REFERRAL_SYSTEM_ENABLED, true),
       getSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER),
+      getTimeslots(),
     ])
-      .then(([rows, enabled, waNum]) => {
+      .then(([rows, enabled, waNum, slots]) => {
         setLoyaltyRows(rows);
         setReferralEnabled(enabled);
         if (waNum) { setWaNumber(waNum); setWaNumberInput(waNum); }
+        if (slots) setTimeslots(slots);
       })
       .catch(() => {})
       .finally(() => setLoyaltyLoading(false));
@@ -825,7 +836,7 @@ const AdminDashboard = () => {
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
-            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
+            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" />
           </button>
           {/* Always-visible title block */}
           <div className="min-w-0">
@@ -2254,6 +2265,174 @@ const AdminDashboard = () => {
         )}
       </div>
 
+
+            {/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-100 dark:bg-blue-900/30">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold">Booking Timeslots</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Manage which time slots customers can choose when booking. Changes apply instantly.
+                    </p>
+                  </div>
+                </div>
+                {timeslotSaved && (
+                  <span className="flex items-center gap-1 text-xs font-bold text-green-600 shrink-0">
+                    <CheckCircle className="w-4 h-4" /> Saved
+                  </span>
+                )}
+              </div>
+
+              <div className="px-5 py-4 space-y-2">
+                {timeslots.map((slot, idx) => (
+                  <div key={slot.value + idx} className={`flex items-center gap-3 p-3 rounded-xl border ${slot.is_vip ? "border-orange-200 bg-orange-50/50 dark:bg-orange-900/10" : "border-border bg-muted/30"}`}>
+                    {/* Drag handle indicator */}
+                    <div className="flex flex-col gap-0.5 shrink-0 opacity-30">
+                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
+                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
+                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{slot.label}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{slot.value}</p>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${slot.is_vip ? "text-orange-600 bg-orange-100 dark:bg-orange-900/30" : "text-muted-foreground bg-muted"}`}>
+                      {slot.is_vip ? "⭐ VIP" : "Standard"}
+                    </span>
+                    {/* Move up / down */}
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <button
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const s = [...timeslots];
+                          [s[idx-1], s[idx]] = [s[idx], s[idx-1]];
+                          setTimeslots(s);
+                        }}
+                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        disabled={idx === timeslots.length - 1}
+                        onClick={() => {
+                          const s = [...timeslots];
+                          [s[idx], s[idx+1]] = [s[idx+1], s[idx]];
+                          setTimeslots(s);
+                        }}
+                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setTimeslots(prev => prev.filter((_, i) => i !== idx))}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 hover:bg-destructive/20 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add new slot form */}
+                <div className="mt-4 p-4 rounded-xl border-2 border-dashed border-border bg-muted/20 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Add New Timeslot</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Time Value *</label>
+                      <input
+                        placeholder="e.g. 12:00-13:30"
+                        value={newSlotValue}
+                        onChange={e => setNewSlotValue(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Display Label *</label>
+                      <input
+                        placeholder="e.g. 12:00 – 13:30"
+                        value={newSlotLabel}
+                        onChange={e => setNewSlotLabel(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer pb-2">
+                        <input
+                          type="checkbox"
+                          checked={newSlotIsVip}
+                          onChange={e => setNewSlotIsVip(e.target.checked)}
+                          className="w-4 h-4 accent-secondary"
+                        />
+                        <span className="text-sm font-semibold">VIP slot</span>
+                      </label>
+                      <button
+                        onClick={() => {
+                          const value = newSlotValue.trim();
+                          const label = newSlotLabel.trim();
+                          if (!value || !label) { setTimeslotMsg("Both value and label are required."); return; }
+                          if (timeslots.some(s => s.value === value)) { setTimeslotMsg("A slot with this value already exists."); return; }
+                          const finalValue = newSlotIsVip && !value.startsWith("VIP") ? `VIP ${value}` : value;
+                          setTimeslots(prev => [...prev, { value: finalValue, label, is_vip: newSlotIsVip }]);
+                          setNewSlotValue(""); setNewSlotLabel(""); setNewSlotIsVip(false);
+                          setTimeslotMsg(null);
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-bold hover:opacity-90 transition mb-0.5"
+                      >
+                        <Plus className="w-4 h-4" /> Add
+                      </button>
+                    </div>
+                  </div>
+                  {timeslotMsg && <p className="text-xs text-destructive">{timeslotMsg}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    Time value format: <code className="font-mono bg-muted px-1 rounded">HH:MM-HH:MM</code> for standard, or <code className="font-mono bg-muted px-1 rounded">VIP HH:MM-HH:MM</code> for VIP slots.
+                  </p>
+                </div>
+
+                {/* Save button */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => { setTimeslots(DEFAULT_TIMESLOTS); setTimeslotMsg("Timeslots reset to defaults."); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline transition"
+                  >
+                    Reset to defaults
+                  </button>
+                  <button
+                    disabled={timeslotSaving}
+                    onClick={async () => {
+                      setTimeslotSaving(true);
+                      setTimeslotMsg(null);
+                      try {
+                        await saveTimeslots(timeslots);
+                        setTimeslotSaved(true);
+                        setTimeslotMsg("Timeslots saved. Customers will see the updated slots on their next page load.");
+                        setTimeout(() => { setTimeslotSaved(false); setTimeslotMsg(null); }, 4000);
+                        auditLog(adminUserId, "settings.timeslots_updated", "settings", undefined, { count: timeslots.length });
+                      } catch (e: any) {
+                        setTimeslotMsg("Failed to save: " + (e?.message ?? "Unknown error"));
+                      } finally {
+                        setTimeslotSaving(false);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50 shadow-orange"
+                    style={{ background: "#FF8C00" }}
+                  >
+                    {timeslotSaving
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
+                      : <><Save className="w-4 h-4" /> Save Timeslots</>}
+                  </button>
+                </div>
+                {timeslotMsg && (
+                  <p className={`text-xs ${timeslotMsg.startsWith("Failed") ? "text-destructive" : "text-green-600 font-medium"}`}>
+                    {timeslotMsg}
+                  </p>
+                )}
+              </div>
+            </div>
+
       {/* ══════════════════ LOYALTY TAB ══════════════════ */}
       {/* Always mounted after first open to prevent content flash on re-visit */}
       <div className={`relative z-10 ${tab === "loyalty" ? "block" : "hidden"}`}>
@@ -2519,7 +2698,7 @@ const AdminDashboard = () => {
                           <span className={`ml-2 inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${tier.bg} ${tier.color}`}>
                             {tier.emoji} {tier.label}
                           </span>
-                          <ChevronDownIcon className={`w-4 h-4 text-foreground/50 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          <ChevronDown className={`w-4 h-4 text-foreground/50 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                         </button>
 
                         {/* Expanded detail */}

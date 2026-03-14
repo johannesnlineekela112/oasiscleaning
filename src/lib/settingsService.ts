@@ -40,4 +40,36 @@ export async function setBoolSetting(key: string, value: boolean): Promise<void>
 export const SETTINGS_KEYS = {
   REFERRAL_SYSTEM_ENABLED:  "referral_system_enabled",
   WHATSAPP_AGENT_NUMBER:    "whatsapp_agent_number",
+  BOOKING_TIMESLOTS:        "booking_timeslots",
 } as const;
+
+// ── Timeslot type ─────────────────────────────────────────────────────────────
+export interface TimeSlotSetting {
+  value:  string;   // e.g. "09:30-11:00" or "VIP 17:00-18:30"
+  label:  string;   // display label
+  is_vip: boolean;
+}
+
+export const DEFAULT_TIMESLOTS: TimeSlotSetting[] = [
+  { value: "08:00-09:30",     label: "08:00 – 09:30",          is_vip: false },
+  { value: "09:30-11:00",     label: "09:30 – 11:00",          is_vip: false },
+  { value: "11:00-12:30",     label: "11:00 – 12:30",          is_vip: false },
+  { value: "13:00-14:30",     label: "13:00 – 14:30",          is_vip: false },
+  { value: "14:30-16:00",     label: "14:30 – 16:00",          is_vip: false },
+  { value: "VIP 17:00-18:30", label: "⭐ VIP 17:00 – 18:30",   is_vip: true  },
+  { value: "VIP 18:30-19:30", label: "⭐ VIP 18:30 – 19:30",   is_vip: true  },
+];
+
+export async function getTimeslots(): Promise<TimeSlotSetting[]> {
+  try {
+    const raw = await getSetting(SETTINGS_KEYS.BOOKING_TIMESLOTS);
+    if (!raw) return DEFAULT_TIMESLOTS;
+    return JSON.parse(raw) as TimeSlotSetting[];
+  } catch {
+    return DEFAULT_TIMESLOTS;
+  }
+}
+
+export async function saveTimeslots(slots: TimeSlotSetting[]): Promise<void> {
+  await setSetting(SETTINGS_KEYS.BOOKING_TIMESLOTS, JSON.stringify(slots));
+}
