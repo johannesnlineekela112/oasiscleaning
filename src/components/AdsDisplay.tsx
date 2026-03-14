@@ -342,10 +342,16 @@ export function PopupAd({ ads }: { ads: MarketingAd[] }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // SIDEBAR — floating panel (bottom-right), highest-priority ad only
 // ═══════════════════════════════════════════════════════════════════════════════
-export function SidebarAd({ ads }: { ads: MarketingAd[] }) {
+export function SidebarAd({ ads, chatbotOpen = false }: { ads: MarketingAd[]; chatbotOpen?: boolean }) {
   const { dismissed, dismiss } = useDismissed();
   const [open, setOpen] = useState(true);
   const ad = ads.find(a => !dismissed.has(a.id));
+
+  // When chatbot is open push the ad higher so they don't overlap
+  // Chatbot panel is ~420px tall + 36px for the toggle button = ~456px from bottom
+  // Mobile toggle is at bottom-20 (80px), panel at bottom-36 (144px)
+  const mobileBottom = chatbotOpen ? "bottom-[480px]" : "bottom-24";
+  const desktopBottom = chatbotOpen ? "bottom-[480px]" : "bottom-24";
 
   if (!ad || !open) return null;
 
@@ -358,7 +364,7 @@ export function SidebarAd({ ads }: { ads: MarketingAd[] }) {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 120, opacity: 0 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
-        className="sm:hidden fixed bottom-24 right-3 z-[150] max-w-[200px] flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-lg overflow-hidden"
+        className={`sm:hidden fixed ${mobileBottom} right-3 z-[150] max-w-[200px] flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-lg overflow-hidden transition-all duration-300`}
       >
         <div className="h-full w-0.5 rounded-full shrink-0 self-stretch" style={{ background: "#FF8C00" }} />
         <p className="text-xs text-foreground leading-snug flex-1 min-w-0 line-clamp-2">{ad.message}</p>
@@ -377,7 +383,7 @@ export function SidebarAd({ ads }: { ads: MarketingAd[] }) {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 120, opacity: 0 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
-        className="hidden sm:block fixed bottom-24 right-4 z-[150] w-64 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
+        className={`hidden sm:block fixed ${desktopBottom} right-4 z-[150] w-64 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden transition-all duration-300`}
       >
         {/* Accent bar */}
         <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #FF8C00, #ffb347)" }} />

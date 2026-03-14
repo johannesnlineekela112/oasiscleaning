@@ -34,10 +34,9 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import MapPicker from "@/components/MapPicker";
-import logo from "@/assets/logo1.png";
+import logo from "@/assets/logo-car.png";
 import { AboutModal } from "@/components/AboutModal";
 import { useToastQueue, NotificationToastStack } from "@/components/NotificationToast";
-import WinnyChatbot from "@/components/WinnyChatbot";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending:        { label: "Pending",            color: "bg-orange-100 text-orange-700" },
@@ -469,19 +468,13 @@ const EmployeeDashboard = () => {
   const handleComplete = async (id: string) => {
     setCompleteError(null);
     try {
-      // Refresh session first to avoid Invalid JWT error on stale sessions
-      const { data: refreshData } = await supabase.auth.refreshSession();
-      const session = refreshData?.session ?? (await supabase.auth.getSession()).data.session;
-      if (!session?.access_token) {
-        setCompleteError('Your session has expired. Please sign in again.');
-        return;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/complete-booking`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session?.access_token}`,
             'Content-Type': 'application/json',
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
@@ -491,19 +484,15 @@ const EmployeeDashboard = () => {
       const body = await res.json();
       if (!res.ok) {
         if (body.error === 'PHOTO_GATE') {
-          setCompleteError(`Please upload at least ${body.required} photo${body.required !== 1 ? 's' : ''} before marking this job complete. You have ${body.photo_count} uploaded.`);
-        } else if (res.status === 401) {
-          setCompleteError('Your session has expired. Please sign in again.');
-        } else if (res.status === 403) {
-          setCompleteError('You are not assigned to this job.');
+          setCompleteError(`Please upload at least ${body.required} photo(s) before marking complete. You have ${body.photo_count} uploaded.`);
         } else {
-          setCompleteError('We could not complete this job. Please try again.');
+          setCompleteError(body.message ?? body.error ?? 'Failed to complete booking.');
         }
         return;
       }
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "completed" as const } : b));
     } catch (err: any) {
-      setCompleteError('We could not reach the server. Please check your connection and try again.');
+      setCompleteError('Network error. Please try again.');
     }
   };
 
@@ -518,9 +507,7 @@ const EmployeeDashboard = () => {
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-4 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
-            <div className="bg-[#0a1628] rounded-xl p-1 flex items-center justify-center">
-              <img src={logo} alt="Oasis" className="h-9 w-auto object-contain drop-shadow-md" />
-            </div>
+            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
           </button>
           <div className="min-w-0">
             <h1 className="font-display font-bold text-sm sm:text-base leading-tight truncate">Oasis Pure Cleaning CC</h1>
@@ -539,7 +526,7 @@ const EmployeeDashboard = () => {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10 pb-8">
 
         {/* Dashboard title */}
         <div className="mb-4 sm:mb-6">
@@ -555,7 +542,7 @@ const EmployeeDashboard = () => {
         <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
           {[
             { label: "Jobs Done",   value: completedBookings.length, icon: Briefcase, color: "text-secondary" },
-            { label: `Commission Owed (${commissionPercent}%)`, value: `N$ ${owedCommission}`, icon: DollarSign, color: owedCommission > 0 ? "text-green-600" : "text-muted-foreground" },
+            { label: `Commission (${commissionPercent}%)`, value: `N$ ${owedCommission}`, icon: DollarSign, color: owedCommission > 0 ? "text-green-600" : "text-muted-foreground" },
           ].map(s => (
             <div key={s.label} className="bg-card rounded-xl shadow-card p-4 text-center">
               <s.icon className={`w-5 h-5 mx-auto mb-1 ${s.color}`} />
@@ -566,7 +553,7 @@ const EmployeeDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-none [-webkit-overflow-scrolling:touch]">
           {(["active", "completed", "payouts"] as const).map(t => (
             <button
               key={t} onClick={() => setTab(t)}
@@ -772,7 +759,7 @@ const EmployeeDashboard = () => {
                 })()}
 
                 {/* ── All-time totals ── */}
-                <div className="bg-card rounded-xl shadow-card px-5 py-3 flex items-center justify-between gap-4 border border-border/60">
+                <div className="bg-card rounded-xl shadow-card px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 border border-border/60">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">All-Time Earned (Paid)</p>
                     <p className="font-display font-bold text-xl text-secondary mt-0.5">
@@ -838,7 +825,6 @@ const EmployeeDashboard = () => {
         )}
       </div>
       <CopyrightFooter />
-      <WinnyChatbot />
     </div>
   );
 };

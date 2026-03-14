@@ -41,7 +41,7 @@ import { supabase } from "@/lib/supabase";
 import { getBoolSetting, SETTINGS_KEYS } from "@/lib/settingsService";
 import MapPicker, { LocationResult } from "@/components/MapPicker";
 import { useNavigate, Link } from "react-router-dom";
-import logo from "@/assets/logo1.png";
+import logo from "@/assets/logo-car.png";
 import { AboutModal } from "@/components/AboutModal";
 import WinnyChatbot from "@/components/WinnyChatbot";
 import ReviewPrompt from "@/components/ReviewPrompt";
@@ -884,9 +884,7 @@ const UserDashboard = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <button onClick={() => window.location.reload()} className="flex items-center gap-2 min-w-0">
-          <div className="bg-[#0a1628] rounded-xl p-1 flex-shrink-0 flex items-center justify-center">
-            <img src={logo} alt="Oasis" className="h-9 w-auto object-contain drop-shadow-md" />
-          </div>
+          <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain flex-shrink-0" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
           <div className="min-w-0 hidden sm:block">
             <h1 className="font-display font-bold text-base leading-tight truncate">
               {activeTab === "loyalty" ? "Loyalty" : activeTab === "profile" ? "My Profile" : "My Bookings"}
@@ -911,7 +909,7 @@ const UserDashboard = () => {
 
       {/* Tab bar */}
       <div className="sticky top-[52px] z-40 bg-card border-b border-border shadow-sm">
-        <div className="max-w-3xl mx-auto px-2 sm:px-4 flex gap-0 overflow-x-auto scrollbar-none">
+        <div className="max-w-3xl mx-auto px-2 sm:px-4 flex gap-0 overflow-x-auto scrollbar-none [-webkit-overflow-scrolling:touch]">
           {([
             { key: "bookings", label: "My Bookings", icon: Calendar },
             { key: "loyalty",  label: "Loyalty",     icon: Award },
@@ -930,7 +928,7 @@ const UserDashboard = () => {
       </div>
 
       {/* Body */}
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10 pb-6 sm:pb-8">
         <AnimatePresence mode="wait">
           {activeTab === "profile" ? (
             <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>

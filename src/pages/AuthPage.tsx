@@ -8,7 +8,7 @@ import { getLegalDocument, recordTCAcceptance } from "@/lib/contentService";
 import { AboutModal, TCCheckbox } from "@/components/AboutModal";
 import { guardAction, recordFailure } from "@/lib/botProtection";
 import { useNavigate, Link } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo-brand.png";
 
 // Namibia cellphone validator — +264 8X XXXXXXX (9 digits after country code)
 // Accepts: +264812345678, 264812345678, 0812345678, 812345678
@@ -117,10 +117,12 @@ const AuthPage = () => {
           >
         <div className="text-center mb-8">
           <button onClick={() => window.location.reload()} className="mx-auto block group">
-            {/* Dark plate so logo text is always readable */}
-            <div className="bg-[#0a1628] rounded-2xl px-6 py-4 inline-block shadow-xl border border-white/10 group-hover:shadow-orange-500/20 transition-shadow mb-3">
-              <img src={logo} alt="Oasis Pure Cleaning CC" className="h-32 w-auto object-contain drop-shadow-2xl" />
-            </div>
+            <img
+              src={logo}
+              alt="Oasis Pure Cleaning CC"
+              className="h-36 sm:h-44 w-auto max-w-[300px] object-contain mx-auto mb-3"
+              style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.18))" }}
+            />
           </button>
           <h2 className="font-display text-2xl font-bold">
             {isSignUp ? "Create Account" : "Welcome Back"}

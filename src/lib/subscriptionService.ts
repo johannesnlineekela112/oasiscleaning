@@ -61,11 +61,12 @@ export async function fetchSubscriptionPlans(businessId = '00000000-0000-0000-00
   return (data || []) as SubscriptionPlan[];
 }
 
-// ─── Customer subscription ────────────────────────────────────────────────────
+// ─── Customer subscription ─────────────────────────────────────────────────────
+// Returns the most recent non-cancelled subscription (including pending states).
 
 export async function fetchMySubscription(): Promise<CustomerSubscription | null> {
-  const { data: session } = await supabase.auth.getSession();
-  if (!session.session) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
 
   const { data, error } = await supabase
     .from('customer_subscriptions')
@@ -73,9 +74,10 @@ export async function fetchMySubscription(): Promise<CustomerSubscription | null
       *,
       subscription_plans!plan_id (plan_name, description, monthly_price)
     `)
-    .eq('customer_id', session.session.user.id)
-    .eq('status', 'active')
-    .gte('renewal_date', new Date().toISOString().slice(0, 10))
+    .eq('customer_id', session.user.id)
+    .not('status', 'in', '("cancelled","expired")')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) throw error;
@@ -84,9 +86,9 @@ export async function fetchMySubscription(): Promise<CustomerSubscription | null
   const plan = (data as any).subscription_plans;
   return {
     ...(data as any),
-    plan_name:        plan?.plan_name        ?? null,
-    plan_description: plan?.description      ?? null,
-    monthly_price:    plan?.monthly_price    ?? null,
+    plan_name:        plan?.plan_name     ?? null,
+    plan_description: plan?.description   ?? null,
+    monthly_price:    plan?.monthly_price ?? null,
   } as CustomerSubscription;
 }
 
@@ -107,12 +109,12 @@ export async function checkSubscriptionForBooking(
     covered:         (row.remaining_bookings ?? 0) > 0,
     subscription_id: row.subscription_id ?? null,
     remaining:       row.remaining_bookings ?? 0,
-    plan_name:        row.plan_name,
-    exhausted:        (row.remaining_bookings ?? 0) <= 0,
+    plan_name:       row.plan_name,
+    exhausted:       (row.remaining_bookings ?? 0) <= 0,
   };
 }
 
-// ─── Admin: manage subscriptions ─────────────────────────────────────────────
+// ─── Admin: create subscription ───────────────────────────────────────────────
 
 export async function createCustomerSubscription(params: {
   customer_id:                string;
@@ -131,7 +133,7 @@ export async function createCustomerSubscription(params: {
       start_date:  new Date().toISOString().slice(0, 10),
       renewal_date: params.renewal_date,
       allowed_bookings_per_month: params.allowed_bookings_per_month,
-      status:      'pending_payment', // Admin must approve upfront payment before activating
+      status:      'pending_payment',
       notes:       params.notes ?? null,
     })
     .select()
@@ -140,14 +142,38 @@ export async function createCustomerSubscription(params: {
   return data as CustomerSubscription;
 }
 
-// ─── Customer: request a plan ────────────────────────────────────────────────
+// ─── Customer: request a plan ─────────────────────────────────────────────────
+// Enforces one active request per customer. Throws if a non-cancelled,
+// non-expired subscription already exists.
 
 export async function requestSubscription(params: {
-  plan_id:    string;
+  plan_id:      string;
   business_id?: string;
 }): Promise<CustomerSubscription> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Please sign in to request a subscription.');
+
+  // Guard: reject if a live subscription or pending request already exists
+  const { data: existing } = await supabase
+    .from('customer_subscriptions')
+    .select('id, status')
+    .eq('customer_id', user.id)
+    .not('status', 'in', '("cancelled","expired")')
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.status === 'active') {
+      throw new Error('You already have an active subscription.');
+    }
+    if (existing.status === 'pending_payment') {
+      throw new Error('You already have a subscription request waiting for payment. Please complete your payment or contact us if you need to change your plan.');
+    }
+    if (existing.status === 'pending_admin_approval') {
+      throw new Error('Your payment is being reviewed. We will activate your plan shortly.');
+    }
+    throw new Error('You already have a subscription on this account.');
+  }
 
   const plan = await supabase
     .from('subscription_plans')

@@ -85,8 +85,6 @@
   }
 
   html {
-    /* clip instead of hidden — prevents horizontal scroll without creating
-       a scroll container that breaks position:sticky on child elements   */
     overflow-x: clip;
     max-width: 100vw;
   }
@@ -95,8 +93,6 @@
     @apply bg-background text-foreground font-body antialiased;
     overflow-x: clip;
     max-width: 100vw;
-    /* no position:relative — avoids creating a stacking context that can
-       interfere with fixed overlays (popups, chatbot, ads)               */
   }
 
   h1, h2, h3, h4 {
@@ -151,5 +147,55 @@
     background: hsl(var(--background) / 0.92);
     pointer-events: none;
     z-index: 0;
+  }
+
+  /* Admin dashboard tab content — subtle car watermark */
+  .admin-tab-bg {
+    position: relative;
+    background-color: hsl(var(--muted) / 0.2);
+    background-image: url('/car-pattern.png');
+    background-repeat: repeat;
+    background-size: 220px 220px;
+    background-position: center;
+  }
+  .admin-tab-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: hsl(var(--background) / 0.94);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .admin-tab-bg > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Mobile: prevent iOS font-size zoom on form inputs ─────────── */
+  @media (max-width: 767px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* ── Logo: transparent PNG on primary (navy) header ────────────── */
+  .logo-on-primary {
+    /* Ensure transparent PNG is crisp on the navy header */
+    image-rendering: -webkit-optimize-contrast;
+    /* No background — the header colour shows through */
+    background: transparent;
+  }
+
+  /* ── Sidebar ad — smooth transition when chatbot pushes it up ─── */
+  .sidebar-ad-transition {
+    transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }

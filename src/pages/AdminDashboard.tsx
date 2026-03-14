@@ -62,9 +62,7 @@ import AdminAds from "@/pages/AdminAds";
 import AdminPaymentVerification from "@/components/AdminPaymentVerification";
 import AdminSubscriptions from "@/components/AdminSubscriptions";
 import { useToastQueue, NotificationToastStack } from "@/components/NotificationToast";
-import logo from "@/assets/logo1.png";
-import WinnyChatbot from "@/components/WinnyChatbot";
-import AdminSidebar from "@/components/AdminSidebar";
+import logo from "@/assets/logo-car.png";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
@@ -98,12 +96,9 @@ const AdminDashboard = () => {
   const [histExportStart,   setHistExportStart]   = useState("");
   const [histExportEnd,     setHistExportEnd]     = useState("");
   const [histExportLoading, setHistExportLoading] = useState<"csv"|"xlsx"|false>(false);
-  const [histFilterStart,   setHistFilterStart]   = useState("");
-  const [histFilterEnd,     setHistFilterEnd]     = useState("");
   const [commExportStart,   setCommExportStart]   = useState("");
   const [commExportEnd,     setCommExportEnd]     = useState("");
   const [commExportLoading, setCommExportLoading] = useState<"csv"|"xlsx"|false>(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const prevBookingCount = useRef(0);
   const navigate = useNavigate();
   const { toasts, pushToast, dismissToast } = useToastQueue();
@@ -157,23 +152,6 @@ const AdminDashboard = () => {
   const [waNumberInput,      setWaNumberInput]      = useState("264812781123");
   const [waNumberSaving,     setWaNumberSaving]     = useState(false);
   const [waNumberSaved,      setWaNumberSaved]      = useState(false);
-
-  // Complete booking — photo gate state
-  const [completingId,       setCompletingId]       = useState<string | null>(null);
-  const [photoGateData,      setPhotoGateData]      = useState<{ bookingId: string; photoCount: number; required: number } | null>(null);
-
-  // Banking details (business_settings.payment_details)
-  const BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
-  const SUPABASE_FN_URL = "https://gzbkpwdnkhsbeygnynbh.supabase.co/functions/v1";
-  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6Ymtwd2Rua2hzYmV5Z255bmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTU1ODcsImV4cCI6MjA4NjIzMTU4N30.reLOBC1F2zbMgAD7Z6I6z_D9s37OhDC4b4Gfr-Ltig8";
-  const [bankingDetails,     setBankingDetails]     = useState({
-    eft_bank_name: "", eft_account_name: "", eft_account_number: "", eft_branch_code: "", eft_reference: "",
-    ewallet_number: "", ewallet_instructions: "",
-    pay2cell_number: "", pay2cell_instructions: "",
-  });
-  const [bankingLoading,     setBankingLoading]     = useState(false);
-  const [bankingSaving,      setBankingSaving]      = useState(false);
-  const [bankingSaved,       setBankingSaved]       = useState(false);
 
   // Booking images: keyed by bookingId
   const [bookingImages,      setBookingImages]      = useState<Record<string, BookingImage[]>>({});
@@ -238,11 +216,8 @@ const AdminDashboard = () => {
       if (!user) { navigate("/admin"); return; }
       const admin = await isAdmin(user.id);
       if (!admin) { navigate("/admin"); return; }
-      // super_admin has a dedicated platform dashboard — redirect them there
-      const profile = await getUserProfile(user.id).catch(() => null);
-      if (profile?.role === "super_admin") { navigate("/platform"); return; }
       setAdminUserId(user.id);
-      if (profile?.full_name) setAdminName(profile.full_name);
+      getUserProfile(user.id).then(p => { if (p?.full_name) setAdminName(p.full_name); }).catch(() => {});
       setAuthChecked(true);
     });
   }, [navigate]);
@@ -277,45 +252,15 @@ const AdminDashboard = () => {
     Promise.all([
       fetchAdminLoyaltyOverview(),
       getBoolSetting(SETTINGS_KEYS.REFERRAL_SYSTEM_ENABLED, true),
-    ])
-      .then(([rows, enabled]) => {
-        setLoyaltyRows(rows);
-        setReferralEnabled(enabled);
-      })
-      .catch(() => {})
-      .finally(() => setLoyaltyLoading(false));
-  }, [authChecked, tab]);
-
-  // Load Settings tab data (banking + whatsapp) on first open
-  const settingsLoadedRef = useRef(false);
-  useEffect(() => {
-    if (!authChecked || tab !== "settings") return;
-    if (settingsLoadedRef.current) return;
-    settingsLoadedRef.current = true;
-    setBankingLoading(true);
-    Promise.all([
-      supabase.from("business_settings").select("payment_details").eq("business_id", BUSINESS_ID).maybeSingle(),
       getSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER),
     ])
-      .then(([{ data }, waNum]) => {
-        if (data?.payment_details) {
-          const pd = data.payment_details;
-          setBankingDetails({
-            eft_bank_name:         pd.eft?.bank_name           ?? "",
-            eft_account_name:      pd.eft?.account_name        ?? "",
-            eft_account_number:    pd.eft?.account_number      ?? "",
-            eft_branch_code:       pd.eft?.branch_code         ?? "",
-            eft_reference:         pd.eft?.reference_hint      ?? "",
-            ewallet_number:        pd.ewallet?.number          ?? "",
-            ewallet_instructions:  pd.ewallet?.instructions    ?? "",
-            pay2cell_number:       pd.pay2cell?.number         ?? "",
-            pay2cell_instructions: pd.pay2cell?.instructions   ?? "",
-          });
-        }
+      .then(([rows, enabled, waNum]) => {
+        setLoyaltyRows(rows);
+        setReferralEnabled(enabled);
         if (waNum) { setWaNumber(waNum); setWaNumberInput(waNum); }
       })
       .catch(() => {})
-      .finally(() => setBankingLoading(false));
+      .finally(() => setLoyaltyLoading(false));
   }, [authChecked, tab]);
 
   // ─── Realtime subscription ─────────────────────────────────────────────────
@@ -470,19 +415,11 @@ const AdminDashboard = () => {
     b.status !== "cancelled" &&
     b.status !== "late_cancelled"
   );
-  // History: filter by date range if set
-  const completedBookingsHist = bookings.filter(b => {
-    if (b.status !== "completed") return false;
-    if (histFilterStart && b.booking_date < histFilterStart) return false;
-    if (histFilterEnd   && b.booking_date > histFilterEnd)   return false;
-    return true;
-  });
-  const cancelledBookingsHist = bookings.filter(b => {
-    if (b.status !== "cancelled" && b.status !== "late_cancelled") return false;
-    if (histFilterStart && b.booking_date < histFilterStart) return false;
-    if (histFilterEnd   && b.booking_date > histFilterEnd)   return false;
-    return true;
-  });
+  // History: completed bookings only
+  const completedBookingsHist = bookings.filter(b => b.status === "completed");
+  const cancelledBookingsHist = bookings.filter(b =>
+    b.status === "cancelled" || b.status === "late_cancelled"
+  );
   const historyBookings = completedBookingsHist;
 
   const displayed =
@@ -508,22 +445,9 @@ const AdminDashboard = () => {
       if (b && !b.paid) { alert("Mark booking as Paid first before completing."); return; }
     }
     const prev = bookings.find(x => x.id === id)?.status;
-    try {
-      await updateBookingStatus(id, status);
-      setBookings(prev2 => prev2.map(b => b.id === id ? { ...b, status } : b));
-      auditLog(adminUserId, "booking.status_changed", "booking", id, { from: prev, to: status });
-    } catch (err: any) {
-      const msg: string = err?.message ?? "";
-      if (msg.includes("PHOTO_GATE") || msg.includes("photo")) {
-        const match = msg.match(/requires at least (\d+) photo/);
-        const needed = match ? match[1] : "2";
-        alert(`Cannot complete booking: at least ${needed} job photo(s) must be uploaded first.
-
-Expand the booking and upload photos using the camera section, then try again.`);
-      } else {
-        alert("Failed to update booking status: " + (msg || "Unknown error"));
-      }
-    }
+    await updateBookingStatus(id, status);
+    setBookings(prev2 => prev2.map(b => b.id === id ? { ...b, status } : b));
+    auditLog(adminUserId, "booking.status_changed", "booking", id, { from: prev, to: status });
   };
 
   const handlePaidToggle = async (id: string, paid: boolean) => {
@@ -598,24 +522,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
       setStaffMsg(err?.message || "Failed to register.");
     }
     setStaffLoading(false);
-  };
-
-
-  // ─── Banking details save ──────────────────────────────────────────────────
-  const handleSaveBanking = async () => {
-    setBankingSaving(true);
-    try {
-      const payment_details = {
-        eft: { bank_name: bankingDetails.eft_bank_name, account_name: bankingDetails.eft_account_name, account_number: bankingDetails.eft_account_number, branch_code: bankingDetails.eft_branch_code, reference_hint: bankingDetails.eft_reference },
-        ewallet: { number: bankingDetails.ewallet_number, instructions: bankingDetails.ewallet_instructions },
-        pay2cell: { number: bankingDetails.pay2cell_number, instructions: bankingDetails.pay2cell_instructions },
-      };
-      const { error } = await supabase.from("business_settings").update({ payment_details, updated_at: new Date().toISOString() }).eq("business_id", BUSINESS_ID);
-      if (error) throw error;
-      setBankingSaved(true); setTimeout(() => setBankingSaved(false), 3000);
-      auditLog(adminUserId, "settings.banking_updated", "settings", undefined, {});
-    } catch (e: any) { alert("Failed to save banking details: " + e?.message); }
-    finally { setBankingSaving(false); }
   };
 
   // ─── Service CRUD ──────────────────────────────────────────────────────────
@@ -844,6 +750,23 @@ Expand the booking and upload photos using the camera section, then try again.`)
     }
   };
 
+  const TABS: { key: Tab; label: string; icon: any }[] = [
+    { key: "analytics",     label: "Analytics",       icon: BarChart2 },
+    { key: "bookings",      label: "Bookings",        icon: ClipboardList },
+    { key: "history",       label: "History",         icon: History },
+    { key: "payments",      label: "Payments",        icon: CreditCard },
+    { key: "subscriptions", label: "Subscriptions",   icon: Zap },
+    { key: "loyalty",       label: "Loyalty",         icon: Award },
+    { key: "employees",     label: "Staff",           icon: Users },
+    { key: "settings",      label: "Services",        icon: Settings },
+    { key: "payouts",       label: "Payouts",         icon: ReceiptText },
+    { key: "about",         label: "About & Legal",   icon: BookOpen },
+    { key: "ads",           label: "Marketing",       icon: Megaphone },
+    { key: "security",      label: "Security",        icon: ShieldCheck },
+    { key: "audit",         label: "Audit Log",       icon: ClipboardList },
+  ];
+
+
   // Load payouts when switching to payouts tab
   useEffect(() => {
     if (!authChecked || tab !== "payouts") return;
@@ -887,52 +810,44 @@ Expand the booking and upload photos using the camera section, then try again.`)
   );
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-background">
+    <div className="min-h-screen car-pattern-bg">
 
       {/* ── Session guards ───────────────────────────────────────────────── */}
+      {/* Re-auth modal — rendered when requireReAuth() is called */}
       <ReAuthGate />
+      {/* Inactivity countdown banner */}
       <InactivityWarning show={showWarning} countdown={countdown} onStay={stayLoggedIn} />
+
+      {/* Notification toasts */}
       <NotificationToastStack toasts={toasts} onDismiss={dismissToast} />
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 h-[52px] bg-primary text-primary-foreground flex items-center justify-between px-3 sm:px-5 shadow-lg gap-2 shrink-0">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Mobile sidebar toggle */}
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition text-primary-foreground/80 shrink-0"
-            aria-label="Open navigation"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
           <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
-            <div className="bg-[#0a1628] rounded-xl p-1 flex items-center justify-center">
-              <img src={logo} alt="Oasis" className="h-8 w-auto object-contain drop-shadow-md" />
-            </div>
+            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.45))" }} />
           </button>
-          <div className="min-w-0 hidden sm:block">
-            <h1 className="font-display font-bold text-sm leading-tight">Oasis Pure Cleaning CC</h1>
-            <p className="text-[10px] text-primary-foreground/50 truncate">Admin Operations</p>
+          {/* Always-visible title block */}
+          <div className="min-w-0">
+            <h1 className="font-display font-bold text-sm sm:text-base leading-tight">Oasis Pure Cleaning CC</h1>
+            <p className="text-[10px] sm:text-xs text-primary-foreground/60 truncate">Admin Dashboard</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-2.5 py-1.5 border border-white/10">
+        {/* Admin identity pill — name always visible on all screen sizes */}
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 bg-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 border border-white/15">
             <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-bold text-secondary-foreground">{adminName.charAt(0).toUpperCase()}</span>
+              <span className="text-[10px] font-bold text-secondary-foreground">
+                {adminName.charAt(0).toUpperCase()}
+              </span>
             </div>
-            <div className="min-w-0 hidden sm:block">
-              <p className="text-xs font-bold leading-tight truncate max-w-[120px]">{adminName}</p>
-              <p className="text-[9px] text-primary-foreground/50 uppercase tracking-wider">Administrator</p>
+            <div className="min-w-0">
+              <p className="text-xs font-bold leading-tight truncate max-w-[80px] sm:max-w-[140px]">{adminName}</p>
+              <p className="text-[9px] text-primary-foreground/50 font-semibold uppercase tracking-wider">Administrator</p>
             </div>
           </div>
-          <button
-            onClick={fetchAll}
-            className="p-2 rounded-lg hover:bg-white/10 transition text-primary-foreground/70 hover:text-primary-foreground"
-            title="Refresh data"
-          >
+          <button onClick={fetchAll} className="text-primary-foreground/70 hover:text-primary-foreground p-2 rounded-lg hover:bg-white/10 transition">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
@@ -941,43 +856,50 @@ Expand the booking and upload photos using the camera section, then try again.`)
               await logout();
               navigate("/admin/login");
             }}
-            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+            className="bg-red-600 text-white px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 hover:bg-red-700 transition"
           >
             <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>
 
-      {/* ── Body: sidebar + scrollable content ──────────────────────────── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative z-10">
 
-        {/* Left sidebar navigation */}
-        <AdminSidebar
-          tab={tab as any}
-          setTab={setTab as any}
-          stats={stats}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(o => !o)}
-        />
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: "Total Bookings", value: stats.total,     icon: Calendar,   color: "text-primary" },
+            { label: "Pending",        value: stats.pending,   icon: Clock,      color: "text-orange-dark" },
+            { label: "Active",         value: stats.confirmed, icon: CheckCircle,color: "text-info" },
+            { label: "Revenue (N$)",   value: stats.revenue,   icon: DollarSign, color: "text-success" },
+          ].map(s => (
+            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl shadow-card p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <s.icon className={`w-4 h-4 ${s.color}`} />
+                <span className="text-xs font-bold text-foreground/70 uppercase tracking-wider">{s.label}</span>
+              </div>
+              <p className="text-2xl font-display font-bold">{s.value}</p>
+            </motion.div>
+          ))}
+        </div>
 
-        {/* Main content area — all tab panels render here */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-muted/20">
-          <div className="max-w-5xl mx-auto px-4 sm:px-5 py-5 sm:py-6">
+        {/* Tab bar */}
+        <div className="sticky top-[52px] z-40 flex items-center gap-0.5 sm:gap-1 mb-4 sm:mb-6 bg-card rounded-xl p-1 sm:p-1.5 shadow-card overflow-x-auto scrollbar-none">
+          {TABS.map(t => (
+            <button
+              key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition flex-1 justify-center whitespace-nowrap ${
+                tab === t.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <t.icon className="w-4 h-4" /> <span className="hidden sm:inline">{t.label}</span>
+            </button>
+          ))}
+        </div>
 
         {/* ══════════════════ BOOKINGS / HISTORY TAB ══════════════════ */}
         {(tab === "bookings" || tab === "history") && (
           <>
-            {/* ── Section header ── */}
-            <div className="mb-5 pb-4 border-b border-border">
-              <h2 className="font-display font-bold text-xl text-foreground flex items-center gap-2">
-                {tab === "bookings" ? <ClipboardList className="w-5 h-5 text-secondary" /> : <History className="w-5 h-5 text-secondary" />}
-                {tab === "bookings" ? "Bookings" : "History"}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {tab === "bookings" ? "Manage active and upcoming jobs" : "Completed and cancelled booking records"}
-              </p>
-            </div>
-
             {/* ── Bookings sub-tabs ── */}
             {tab === "bookings" && (
               <div className="mb-5 space-y-3">
@@ -1014,7 +936,7 @@ Expand the booking and upload photos using the camera section, then try again.`)
             {tab === "history" && (
               <div className="mb-5 space-y-4">
                 {/* Sub-tab selector */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   {([
                     { key: "completed",    label: `Completed (${completedBookingsHist.length})`,    color: "bg-green-600 text-white", inactive: "bg-card text-foreground/70 border border-border hover:border-green-400" },
                     { key: "cancellations",label: `Cancelled (${cancelledBookingsHist.length})`,    color: "bg-red-600 text-white",   inactive: "bg-card text-foreground/70 border border-border hover:border-red-400" },
@@ -1024,29 +946,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
                       {st.label}
                     </button>
                   ))}
-                </div>
-
-                {/* Date range filter */}
-                <div className="bg-card rounded-xl border border-border p-3 flex items-end gap-3 flex-wrap">
-                  <div>
-                    <label className="text-xs font-semibold text-foreground/70 block mb-1">From</label>
-                    <input type="date" value={histFilterStart} onChange={e => setHistFilterStart(e.target.value)}
-                      className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-foreground/70 block mb-1">To</label>
-                    <input type="date" value={histFilterEnd} onChange={e => setHistFilterEnd(e.target.value)}
-                      className="px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30" />
-                  </div>
-                  {(histFilterStart || histFilterEnd) && (
-                    <button onClick={() => { setHistFilterStart(""); setHistFilterEnd(""); }}
-                      className="px-3 py-2 rounded-lg border border-border text-sm font-semibold text-foreground/70 hover:bg-muted transition">
-                      Clear filter
-                    </button>
-                  )}
-                  {(!histFilterStart && !histFilterEnd) && (
-                    <p className="text-xs text-foreground/50 self-center">Showing all history. Set a date range to filter.</p>
-                  )}
                 </div>
 
                 {/* Context line */}
@@ -1351,25 +1250,14 @@ Expand the booking and upload photos using the camera section, then try again.`)
                                   </button>
                                 )}
 
-                                {canComplete && (() => {
-                                  const photoCount = bookingImages[booking.id!]?.length ?? 0;
-                                  const photosOk = photoCount >= 2;
-                                  return (
-                                    <div className="flex flex-col items-start gap-0.5">
-                                      <button
-                                        onClick={() => handleStatusChange(booking.id!, "completed")}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase bg-success/20 text-success hover:bg-success/30 transition flex items-center gap-1.5"
-                                      >
-                                        <CheckCircle className="w-3.5 h-3.5" /> Complete
-                                      </button>
-                                      {!photosOk && (
-                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
-                                          ⚠ Upload {2 - photoCount} more photo{photoCount < 1 ? "s" : ""} first
-                                        </span>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
+                                {canComplete && (
+                                  <button
+                                    onClick={() => handleStatusChange(booking.id!, "completed")}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase bg-success/20 text-success hover:bg-success/30 transition flex items-center gap-1.5"
+                                  >
+                                    <CheckCircle className="w-3.5 h-3.5" /> Complete
+                                  </button>
+                                )}
 
                                 {!canComplete && booking.status !== "pending" && booking.status !== "cancelled" && (
                                   <span className="text-xs text-muted-foreground italic">
@@ -1435,12 +1323,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
         {/* ══════════════════ STAFF TAB ══════════════════ */}
         {tab === "employees" && (
           <div className="space-y-6">
-            <div className="pb-4 border-b border-border">
-              <h2 className="font-display font-bold text-xl flex items-center gap-2">
-                <Users className="w-5 h-5 text-secondary" /> Staff Management
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Register employees, manage roles, and set commission rates</p>
-            </div>
 
             {/* Register form */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl shadow-card p-6">
@@ -1578,150 +1460,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
         {/* ══════════════════ SERVICES / SETTINGS TAB ══════════════════ */}
         {tab === "settings" && (
           <div className="space-y-6">
-            <div className="pb-4 border-b border-border">
-              <h2 className="font-display font-bold text-xl flex items-center gap-2">
-                <Settings className="w-5 h-5 text-secondary" /> Settings
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Services, pricing, banking details, commission rates, and notifications</p>
-            </div>
-
-            {/* ── Chatbot WhatsApp Number ── */}
-            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-              <div className="flex items-start justify-between gap-4 p-5">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/30">
-                    <MessageCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm">Chatbot WhatsApp Number</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Phone number Winny redirects customers to when they request a live agent. Include country code, no spaces or dashes (e.g. 264812781123).</p>
-                    <div className="flex gap-2 mt-3 items-center">
-                      <span className="text-sm text-muted-foreground select-none">+</span>
-                      <input
-                        value={waNumberInput}
-                        onChange={e => { setWaNumberInput(e.target.value.replace(/\D/g,"")); setWaNumberSaved(false); }}
-                        placeholder="264812781123"
-                        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition font-mono"
-                        maxLength={15}
-                      />
-                      <button
-                        disabled={waNumberSaving || !waNumberInput.trim()}
-                        onClick={async () => {
-                          setWaNumberSaving(true);
-                          try {
-                            await setSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER, waNumberInput.trim());
-                            setWaNumber(waNumberInput.trim());
-                            setWaNumberSaved(true);
-                            setTimeout(() => setWaNumberSaved(false), 3000);
-                            auditLog(adminUserId, "settings.whatsapp_updated", "settings", undefined, { number: waNumberInput.trim() });
-                          } catch (e: any) { alert("Failed to save: " + e?.message); }
-                          finally { setWaNumberSaving(false); }
-                        }}
-                        className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        {waNumberSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : waNumberSaved ? <><CheckCircle className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save</>}
-                      </button>
-                    </div>
-                    {waNumber && (
-                      <p className="text-xs text-muted-foreground mt-2">Current: <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="text-green-600 font-mono hover:underline">+{waNumber}</a></p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Banking & Payment Details ── */}
-            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-secondary/10">
-                    <Banknote className="w-5 h-5 text-secondary" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm">Banking & Payment Details</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Shown to customers on the booking confirmation screen</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleSaveBanking}
-                  disabled={bankingSaving}
-                  className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-secondary text-secondary-foreground hover:opacity-90 shadow-orange disabled:opacity-50"
-                >
-                  {bankingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : bankingSaved ? <><CheckCircle className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save All</>}
-                </button>
-              </div>
-              {bankingLoading ? (
-                <div className="p-6 flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
-              ) : (
-                <div className="p-5 space-y-5">
-                  {/* EFT */}
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><ReceiptText className="w-3.5 h-3.5" /> EFT / Bank Transfer</p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {[
-                        { label: "Bank Name", key: "eft_bank_name" as const, placeholder: "e.g. First National Bank" },
-                        { label: "Account Name", key: "eft_account_name" as const, placeholder: "e.g. Oasis Pure Cleaning CC" },
-                        { label: "Account Number", key: "eft_account_number" as const, placeholder: "e.g. 62xxxxxxxx" },
-                        { label: "Branch Code", key: "eft_branch_code" as const, placeholder: "e.g. 280172" },
-                        { label: "Reference Hint", key: "eft_reference" as const, placeholder: "e.g. Your name + booking date" },
-                      ].map(field => (
-                        <div key={field.key}>
-                          <label className="text-xs font-semibold text-muted-foreground mb-1 block">{field.label}</label>
-                          <input
-                            value={bankingDetails[field.key]}
-                            onChange={e => setBankingDetails(p => ({ ...p, [field.key]: e.target.value }))}
-                            placeholder={field.placeholder}
-                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {/* eWallet */}
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" /> eWallet (MTC/MobiPay)</p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">eWallet Number</label>
-                        <input value={bankingDetails.ewallet_number} onChange={e => setBankingDetails(p => ({ ...p, ewallet_number: e.target.value }))} placeholder="+264 81 000 0000" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Instructions</label>
-                        <input value={bankingDetails.ewallet_instructions} onChange={e => setBankingDetails(p => ({ ...p, ewallet_instructions: e.target.value }))} placeholder="Send and use your name as reference" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
-                      </div>
-                    </div>
-                  </div>
-                  {/* Pay2Cell */}
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Pay2Cell</p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Pay2Cell Number</label>
-                        <input value={bankingDetails.pay2cell_number} onChange={e => setBankingDetails(p => ({ ...p, pay2cell_number: e.target.value }))} placeholder="+264 81 000 0000" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground mb-1 block">Instructions</label>
-                        <input value={bankingDetails.pay2cell_instructions} onChange={e => setBankingDetails(p => ({ ...p, pay2cell_instructions: e.target.value }))} placeholder="Pay via Pay2Cell and use your name as reference" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Services section header (with add button) */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h3 className="font-display font-bold text-lg flex items-center gap-2"><Briefcase className="w-4 h-4 text-secondary" /> Services & Pricing</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Manage service catalogue and per-vehicle pricing</p>
-              </div>
-              <button
-                onClick={() => { setShowServiceForm(true); setEditingServiceId(null); setServiceForm(emptyServiceForm()); }}
-                className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 transition flex items-center gap-2 shadow-orange shrink-0"
-              >
-                <Plus className="w-4 h-4" /> Add Service
-              </button>
-            </div>
 
             {/* Service form */}
             <AnimatePresence>
@@ -1920,12 +1658,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
         {/* ══════════════════ PAYOUTS TAB ══════════════════ */}
         {tab === "payouts" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-            <div className="pb-4 border-b border-border">
-              <h2 className="font-display font-bold text-xl flex items-center gap-2">
-                <ReceiptText className="w-5 h-5 text-secondary" /> Commission Payouts
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Generate monthly payslips, approve and record commission payments</p>
-            </div>
 
             {/* ── Header ── */}
             <div className="bg-card rounded-xl shadow-card p-5">
@@ -2308,12 +2040,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
         {/* ══════════════════ ABOUT & LEGAL TAB ══════════════════ */}
         {tab === "about" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            <div className="pb-4 border-b border-border">
-              <h2 className="font-display font-bold text-xl flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-secondary" /> About & Legal
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Edit legal documents, terms, and team member profiles</p>
-            </div>
 
             {legalLoading ? (
               <div className="flex items-center justify-center py-16">
@@ -2526,17 +2252,12 @@ Expand the booking and upload photos using the camera section, then try again.`)
             )}
           </motion.div>
         )}
+      </div>
 
       {/* ══════════════════ LOYALTY TAB ══════════════════ */}
       {/* Always mounted after first open to prevent content flash on re-visit */}
-      <div className={tab === "loyalty" ? "block" : "hidden"}>
+      <div className={`relative z-10 ${tab === "loyalty" ? "block" : "hidden"}`}>
           <div className="space-y-5">
-            <div className="pb-4 border-b border-border">
-              <h2 className="font-display font-bold text-xl flex items-center gap-2">
-                <Award className="w-5 h-5 text-secondary" /> Loyalty Program
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Customer points, tiers, free wash redemptions, and referrals</p>
-            </div>
             {/* ── Referral System Toggle ── */}
             <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
               <div className="px-5 py-4 flex items-center justify-between gap-4">
@@ -2599,6 +2320,63 @@ Expand the booking and upload photos using the camera section, then try again.`)
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* ── WhatsApp Agent Number Setting ── */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="flex items-start justify-between gap-4 p-5">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100 dark:bg-green-900/30">
+                    <MessageCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm">Chatbot WhatsApp Number</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Phone number Winny redirects customers to when they request a live agent.
+                      Include country code, no spaces or dashes (e.g. 264812781123).
+                    </p>
+                    <div className="flex gap-2 mt-3 items-center">
+                      <span className="text-sm text-muted-foreground select-none">+</span>
+                      <input
+                        value={waNumberInput}
+                        onChange={e => { setWaNumberInput(e.target.value.replace(/\D/g,"")); setWaNumberSaved(false); }}
+                        placeholder="264812781123"
+                        className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition font-mono"
+                        maxLength={15}
+                      />
+                      <button
+                        disabled={waNumberSaving || !waNumberInput.trim()}
+                        onClick={async () => {
+                          setWaNumberSaving(true);
+                          try {
+                            await setSetting(SETTINGS_KEYS.WHATSAPP_AGENT_NUMBER, waNumberInput.trim());
+                            setWaNumber(waNumberInput.trim());
+                            setWaNumberSaved(true);
+                            setTimeout(() => setWaNumberSaved(false), 3000);
+                            auditLog(adminUserId, "settings.whatsapp_updated", "settings", undefined, { number: waNumberInput.trim() });
+                          } catch (e: any) {
+                            alert("Failed to save: " + e?.message);
+                          } finally {
+                            setWaNumberSaving(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {waNumberSaving
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : waNumberSaved
+                          ? <><CheckCircle className="w-4 h-4" /> Saved!</>
+                          : <><Save className="w-4 h-4" /> Save</>}
+                      </button>
+                    </div>
+                    {waNumber && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Current: <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="text-green-600 font-mono hover:underline">+{waNumber}</a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Header */}
@@ -2827,25 +2605,13 @@ Expand the booking and upload photos using the camera section, then try again.`)
 
       {/* ══════════════════ MARKETING ADS TAB ══════════════════ */}
       {/* Always mounted - prevents data-reload flash on tab switch */}
-      <div className={tab === "ads" ? "block" : "hidden"}>
-        <div className="pb-4 mb-5 border-b border-border">
-          <h2 className="font-display font-bold text-xl flex items-center gap-2">
-            <Megaphone className="w-5 h-5 text-secondary" /> Marketing
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Promotional banners and advertisements displayed to customers</p>
-        </div>
+      <div className={`relative z-10 ${tab === "ads" ? "block" : "hidden"}`}>
         <AdminAds />
       </div>
 
       {/* ══════════════════ SECURITY TAB ══════════════════ */}
       {tab === "security" && (
-        <div className="space-y-6 pb-6">
-          <div className="pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-secondary" /> Security
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Active abuse blocks, rate-limiting events, and login security logs</p>
-          </div>
+        <div className="relative z-10 px-3 sm:px-6 pb-8 space-y-6">
 
           {/* Active Blocks */}
           <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
@@ -2982,58 +2748,19 @@ Expand the booking and upload photos using the camera section, then try again.`)
       {/* ══ Analytics tab ══════════════════════════════════════════════════════════ */}
       {tab === "analytics" && (
         <div>
-          <div className="mb-5 pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <BarChart2 className="w-5 h-5 text-secondary" /> Analytics
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Revenue trends, booking stats, and team performance</p>
-          </div>
           <AdminAnalytics />
-        </div>
-      )}
-
-      {/* ══ Payments tab ══════════════════════════════════════════════════════════ */}
-      {tab === "payments" && (
-        <div className="space-y-5">
-          <div className="pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-secondary" /> Payment Verification
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Approve or reject EFT / mobile proof of payment submissions</p>
-          </div>
-          <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
-            <AdminPaymentVerification />
-          </div>
-        </div>
-      )}
-
-      {/* ══ Subscriptions tab ══════════════════════════════════════════════════════ */}
-      {tab === "subscriptions" && (
-        <div className="space-y-5">
-          <div className="pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <Zap className="w-5 h-5 text-secondary" /> Subscriptions
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage customer subscription plans and statuses</p>
-          </div>
-          <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
-            <AdminSubscriptions />
-          </div>
         </div>
       )}
 
       {/* ══ Audit Log tab ══════════════════════════════════════════════════════════ */}
       {tab === "audit" && (
         <div className="space-y-4">
-          <div className="pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-secondary" /> Audit Log
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Tamper-proof record of every admin action — entries cannot be edited or deleted</p>
-          </div>
           <div className="bg-card rounded-xl shadow-card overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <p className="text-xs text-muted-foreground">Showing last 300 entries</p>
+              <div>
+                <h3 className="font-bold text-sm">Admin Action Log</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Tamper-proof record of every mutating admin action. Entries cannot be edited or deleted.</p>
+              </div>
               <button
                 onClick={() => {
                   setAuditLogsLoading(true);
@@ -3105,10 +2832,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
         </div>
       )}
 
-          </div>{/* closes max-w-5xl content wrapper */}
-        </main>{/* closes main flex content area */}
-      </div>{/* closes flex row (sidebar + content) */}
-
       {/* ══ Admin image lightbox ══ */}
       <AnimatePresence>
         {imagesLightbox && (
@@ -3134,8 +2857,19 @@ Expand the booking and upload photos using the camera section, then try again.`)
         )}
       </AnimatePresence>
 
+      {tab === "payments" && (
+        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
+          <AdminPaymentVerification />
+        </div>
+      )}
+
+      {tab === "subscriptions" && (
+        <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6">
+          <AdminSubscriptions />
+        </div>
+      )}
+
       <CopyrightFooter />
-      <WinnyChatbot />
     </div>
   );
 };

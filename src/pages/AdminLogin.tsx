@@ -69,7 +69,7 @@ const AdminLogin = () => {
           { reason: "non_admin_role", role: profile?.role }, meta);
         // Sign out the non-admin so they don't hold a dangling session
         await logout();
-        setError("Access denied — this account does not have admin privileges.");
+        setError("Access denied. This account does not have admin privileges.");
         return;
       }
 

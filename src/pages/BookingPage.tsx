@@ -292,6 +292,7 @@ const BookingPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
+  const [chatbotOpen, setChatbotOpen] = useState(false);
   const [showAbout,   setShowAbout]   = useState(false);
   const [aboutTab,    setAboutTab]    = useState<"about"|"team"|"tc">("about");
   const [tcAccepted,  setTcAccepted]  = useState(false);
@@ -597,18 +598,8 @@ const BookingPage = () => {
         setSubmitError("No internet connection. Please check your network and try again.");
       else if (msg.includes("duplicate") || msg.includes("unique"))
         setSubmitError("A booking with this plate number already exists for this date. Please check your details.");
-      else if (msg.includes("verify your email") || msg.includes("email address"))
-        setSubmitError(msg);
-      else if (msg.includes("subscription") || msg.includes("no remaining slots"))
-        setSubmitError(msg);
-      else if (msg.includes("payment proof") || msg.includes("proof upload"))
-        setSubmitError(msg);
-      else if (msg.includes("rate limit") || msg.includes("too many") || msg.includes("blocked"))
-        setSubmitError(msg);
-      else if (msg.includes("Required booking details") || msg.includes("vehicle") || msg.includes("service"))
-        setSubmitError(msg);
       else
-        setSubmitError(msg || "An unexpected error occurred. Please try again or contact us on WhatsApp.");
+        setSubmitError(`Booking failed: ${msg || "An unexpected error occurred. Please try again or contact us on WhatsApp."}`);
       // Track failure for abuse detection
       await recordFailure("booking", currentUser?.id, msg);
     } finally {
@@ -732,7 +723,7 @@ const BookingPage = () => {
       <PopupAd ads={popupAds} />
 
       {/* ── Sidebar ad — floating bottom-right panel ── */}
-      <SidebarAd ads={sidebarAds} />
+      <SidebarAd ads={sidebarAds} chatbotOpen={chatbotOpen} />
 
       <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6 relative z-10 pb-28">
 
@@ -1172,7 +1163,7 @@ const BookingPage = () => {
         </button>
       </div>
       <CopyrightFooter />
-      <WinnyChatbot />
+      <WinnyChatbot onOpenChange={setChatbotOpen} />
     </div>
   );
 };

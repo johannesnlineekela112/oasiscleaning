@@ -217,7 +217,7 @@ function AssignModal({
             <option value="">Select a plan…</option>
             {plans.map(p => (
               <option key={p.id} value={p.id}>
-                {p.plan_name} — {p.monthly_price > 0 ? `N$ ${p.monthly_price}/mo` : "Custom"} ({p.allowed_bookings_per_month} bookings)
+                {p.plan_name} · {p.monthly_price > 0 ? `N$ ${p.monthly_price}/mo` : "Custom"} ({p.allowed_bookings_per_month} bookings)
               </option>
             ))}
           </select>

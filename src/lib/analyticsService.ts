@@ -79,13 +79,14 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://gzbkpwdnkhsbe
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 async function callAnalytics(params: Record<string, string>): Promise<any> {
-  // Always refresh the session before calling analytics.
-  // This prevents 401 errors when the tab has been idle and the token expired.
-  const { data: refreshed } = await supabase.auth.refreshSession();
-  const session = refreshed?.session ?? (await supabase.auth.getSession()).data.session;
+  // Proactively refresh the session before calling analytics to avoid 401s
+  // on idle tabs where the access token has expired.
+  await supabase.auth.refreshSession().catch(() => {});
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData?.session;
 
   if (!session?.access_token) {
-    throw new Error('Your login has expired. Please sign in again to view your dashboard.');
+    throw new Error('Please sign in again to view your dashboard.');
   }
 
   const qs = new URLSearchParams(params).toString();
@@ -101,7 +102,7 @@ async function callAnalytics(params: Record<string, string>): Promise<any> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     if (res.status === 401) {
-      throw new Error('We could not open your dashboard. Please sign in again.');
+      throw new Error('Please sign in again to view your dashboard.');
     }
     if (res.status === 403) {
       throw new Error('You do not have permission to view analytics.');

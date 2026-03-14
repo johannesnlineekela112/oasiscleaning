@@ -540,7 +540,7 @@ export default function SuperAdminDashboard() {
   const renderSupport = () => (
     <div className="space-y-4">
       <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm text-amber-300">
-        <strong>Support Mode</strong> — sessions are read-only by default and fully audit-logged. Destructive actions require explicit confirmation.
+        <strong>Support Mode</strong> Sessions are read-only by default and fully audit-logged. Destructive actions require explicit confirmation.
       </div>
       <h3 className="text-sm font-semibold text-white/50 uppercase tracking-widest">Active Sessions</h3>
       {supportSessions.filter(s => s.is_active).length === 0 && (
@@ -601,7 +601,7 @@ export default function SuperAdminDashboard() {
                 }`}
               >
                 {platformSettings.maintenance_mode ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                {platformSettings.maintenance_mode ? "ON — Click to disable" : "OFF — Click to enable"}
+                {platformSettings.maintenance_mode ? "ON (click to disable)" : "OFF (click to enable)"}
               </button>
             </div>
           </div>
@@ -663,9 +663,7 @@ export default function SuperAdminDashboard() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="h-[52px] shrink-0 bg-[#0d1120] border-b border-white/[0.06] flex items-center justify-between px-4 sm:px-6 z-50">
         <div className="flex items-center gap-3">
-          <div className="bg-[#0a1628] rounded-xl p-1">
-            <img src={logo} alt="Oasis" className="h-7 w-auto object-contain" />
-          </div>
+          <img src={logo} alt="Oasis" className="h-9 w-auto object-contain" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" }} />
           <div>
             <p className="text-xs font-bold text-white leading-tight">Oasis Pure Cleaning CC</p>
             <div className="flex items-center gap-1.5">
