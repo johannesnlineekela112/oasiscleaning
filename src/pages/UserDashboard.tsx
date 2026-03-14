@@ -1167,6 +1167,7 @@ const UserDashboard = () => {
                     );
                   })}
                 </div>
+              </div>
               )}
 
               {/* ── Booking history ── */}
