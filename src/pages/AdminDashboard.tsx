@@ -878,12 +878,12 @@ Expand the booking and upload photos using the camera section, then try again.`)
   useEffect(() => {
     if (!authChecked || tab !== "audit") return;
     setAuditLogsLoading(true);
-    supabase
+    (supabase
       .from("admin_audit_log")
       .select("*, admin:admin_id(full_name)")
       .order("created_at", { ascending: false })
-      .limit(300)
-      .then(({ data }) => setAuditLogs(data ?? []))
+      .limit(300) as any)
+      .then(({ data }: any) => setAuditLogs(data ?? []))
       .catch(() => {})
       .finally(() => setAuditLogsLoading(false));
   }, [authChecked, tab]);
@@ -2046,6 +2046,119 @@ Expand the booking and upload photos using the camera section, then try again.`)
                 {commissionSaved && <span className="text-sm text-success font-semibold">✓ Saved!</span>}
               </div>
             </div>
+
+            {/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
+            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-100 dark:bg-blue-900/30">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold">Booking Timeslots</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Manage which time slots customers see when booking. Changes take effect immediately.
+                    </p>
+                  </div>
+                </div>
+                {timeslotSaved && (
+                  <span className="flex items-center gap-1 text-xs font-bold text-green-600 shrink-0">
+                    <CheckCircle className="w-4 h-4" /> Saved
+                  </span>
+                )}
+              </div>
+
+              <div className="px-5 py-4 space-y-2">
+                {timeslots.map((slot, idx) => (
+                  <div key={slot.value + idx} className={`flex items-center gap-3 p-3 rounded-xl border ${slot.is_vip ? "border-orange-200 bg-orange-50/50 dark:bg-orange-900/10" : "border-border bg-muted/30"}`}>
+                    <div className="flex flex-col gap-0.5 shrink-0 opacity-30">
+                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
+                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
+                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{slot.label}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{slot.value}</p>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${slot.is_vip ? "text-orange-600 bg-orange-100 dark:bg-orange-900/30" : "text-muted-foreground bg-muted"}`}>
+                      {slot.is_vip ? "⭐ VIP" : "Standard"}
+                    </span>
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <button disabled={idx === 0} onClick={() => { const s = [...timeslots]; [s[idx-1], s[idx]] = [s[idx], s[idx-1]]; setTimeslots(s); }}
+                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20">
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button disabled={idx === timeslots.length - 1} onClick={() => { const s = [...timeslots]; [s[idx], s[idx+1]] = [s[idx+1], s[idx]]; setTimeslots(s); }}
+                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20">
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <button onClick={() => setTimeslots(prev => prev.filter((_, i) => i !== idx))}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 hover:bg-destructive/20 transition">
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add new slot */}
+                <div className="mt-4 p-4 rounded-xl border-2 border-dashed border-border bg-muted/20 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Add New Timeslot</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Time Value *</label>
+                      <input placeholder="e.g. 12:00-13:30" value={newSlotValue} onChange={e => setNewSlotValue(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Display Label *</label>
+                      <input placeholder="e.g. 12:00 – 13:30" value={newSlotLabel} onChange={e => setNewSlotLabel(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer pb-2">
+                        <input type="checkbox" checked={newSlotIsVip} onChange={e => setNewSlotIsVip(e.target.checked)} className="w-4 h-4 accent-secondary" />
+                        <span className="text-sm font-semibold">VIP slot</span>
+                      </label>
+                      <button onClick={() => {
+                        const value = newSlotValue.trim(); const label = newSlotLabel.trim();
+                        if (!value || !label) { setTimeslotMsg("Both value and label are required."); return; }
+                        if (timeslots.some(s => s.value === value)) { setTimeslotMsg("A slot with this value already exists."); return; }
+                        const finalValue = newSlotIsVip && !value.startsWith("VIP") ? `VIP ${value}` : value;
+                        setTimeslots(prev => [...prev, { value: finalValue, label, is_vip: newSlotIsVip }]);
+                        setNewSlotValue(""); setNewSlotLabel(""); setNewSlotIsVip(false); setTimeslotMsg(null);
+                      }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-bold hover:opacity-90 transition mb-0.5">
+                        <Plus className="w-4 h-4" /> Add
+                      </button>
+                    </div>
+                  </div>
+                  {timeslotMsg && <p className="text-xs text-destructive">{timeslotMsg}</p>}
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button onClick={() => { setTimeslots(DEFAULT_TIMESLOTS); setTimeslotMsg("Reset to defaults."); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline transition">
+                    Reset to defaults
+                  </button>
+                  <button disabled={timeslotSaving} onClick={async () => {
+                    setTimeslotSaving(true); setTimeslotMsg(null);
+                    try {
+                      await saveTimeslots(timeslots);
+                      setTimeslotSaved(true);
+                      setTimeslotMsg("Timeslots saved successfully.");
+                      setTimeout(() => { setTimeslotSaved(false); setTimeslotMsg(null); }, 4000);
+                      auditLog(adminUserId, "settings.timeslots_updated", "settings", undefined, { count: timeslots.length });
+                    } catch (e: any) {
+                      setTimeslotMsg("Failed to save: " + (e?.message ?? "Unknown error"));
+                    } finally { setTimeslotSaving(false); }
+                  }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50 shadow-orange" style={{ background: "#FF8C00" }}>
+                    {timeslotSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> Save Timeslots</>}
+                  </button>
+                </div>
+                {timeslotMsg && (
+                  <p className={`text-xs ${timeslotMsg.startsWith("Failed") ? "text-destructive" : "text-green-600 font-medium"}`}>{timeslotMsg}</p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -2658,120 +2771,6 @@ Expand the booking and upload photos using the camera section, then try again.`)
               </>
             )}
 
-
-            {/* ══ Booking Timeslots Manager ══════════════════════════════════════ */}
-            <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-100 dark:bg-blue-900/30">
-                    <Clock className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-display font-bold">Booking Timeslots</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Manage which time slots customers see when booking. Changes take effect immediately.
-                    </p>
-                  </div>
-                </div>
-                {timeslotSaved && (
-                  <span className="flex items-center gap-1 text-xs font-bold text-green-600 shrink-0">
-                    <CheckCircle className="w-4 h-4" /> Saved
-                  </span>
-                )}
-              </div>
-
-              <div className="px-5 py-4 space-y-2">
-                {timeslots.map((slot, idx) => (
-                  <div key={slot.value + idx} className={`flex items-center gap-3 p-3 rounded-xl border ${slot.is_vip ? "border-orange-200 bg-orange-50/50 dark:bg-orange-900/10" : "border-border bg-muted/30"}`}>
-                    <div className="flex flex-col gap-0.5 shrink-0 opacity-30">
-                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
-                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
-                      <div className="w-4 h-0.5 bg-foreground rounded-full" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{slot.label}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{slot.value}</p>
-                    </div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${slot.is_vip ? "text-orange-600 bg-orange-100 dark:bg-orange-900/30" : "text-muted-foreground bg-muted"}`}>
-                      {slot.is_vip ? "⭐ VIP" : "Standard"}
-                    </span>
-                    <div className="flex flex-col gap-0.5 shrink-0">
-                      <button disabled={idx === 0} onClick={() => { const s = [...timeslots]; [s[idx-1], s[idx]] = [s[idx], s[idx-1]]; setTimeslots(s); }}
-                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20">
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button disabled={idx === timeslots.length - 1} onClick={() => { const s = [...timeslots]; [s[idx], s[idx+1]] = [s[idx+1], s[idx]]; setTimeslots(s); }}
-                        className="w-6 h-5 flex items-center justify-center rounded hover:bg-muted transition disabled:opacity-20">
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <button onClick={() => setTimeslots(prev => prev.filter((_, i) => i !== idx))}
-                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-destructive/10 hover:bg-destructive/20 transition">
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </button>
-                  </div>
-                ))}
-
-                {/* Add new slot */}
-                <div className="mt-4 p-4 rounded-xl border-2 border-dashed border-border bg-muted/20 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Add New Timeslot</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Time Value *</label>
-                      <input placeholder="e.g. 12:00-13:30" value={newSlotValue} onChange={e => setNewSlotValue(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">Display Label *</label>
-                      <input placeholder="e.g. 12:00 – 13:30" value={newSlotLabel} onChange={e => setNewSlotLabel(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                    </div>
-                    <div className="flex items-end gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer pb-2">
-                        <input type="checkbox" checked={newSlotIsVip} onChange={e => setNewSlotIsVip(e.target.checked)} className="w-4 h-4 accent-secondary" />
-                        <span className="text-sm font-semibold">VIP slot</span>
-                      </label>
-                      <button onClick={() => {
-                        const value = newSlotValue.trim(); const label = newSlotLabel.trim();
-                        if (!value || !label) { setTimeslotMsg("Both value and label are required."); return; }
-                        if (timeslots.some(s => s.value === value)) { setTimeslotMsg("A slot with this value already exists."); return; }
-                        const finalValue = newSlotIsVip && !value.startsWith("VIP") ? `VIP ${value}` : value;
-                        setTimeslots(prev => [...prev, { value: finalValue, label, is_vip: newSlotIsVip }]);
-                        setNewSlotValue(""); setNewSlotLabel(""); setNewSlotIsVip(false); setTimeslotMsg(null);
-                      }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-bold hover:opacity-90 transition mb-0.5">
-                        <Plus className="w-4 h-4" /> Add
-                      </button>
-                    </div>
-                  </div>
-                  {timeslotMsg && <p className="text-xs text-destructive">{timeslotMsg}</p>}
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <button onClick={() => { setTimeslots(DEFAULT_TIMESLOTS); setTimeslotMsg("Reset to defaults."); }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline transition">
-                    Reset to defaults
-                  </button>
-                  <button disabled={timeslotSaving} onClick={async () => {
-                    setTimeslotSaving(true); setTimeslotMsg(null);
-                    try {
-                      await saveTimeslots(timeslots);
-                      setTimeslotSaved(true);
-                      setTimeslotMsg("Timeslots saved successfully.");
-                      setTimeout(() => { setTimeslotSaved(false); setTimeslotMsg(null); }, 4000);
-                      auditLog(adminUserId, "settings.timeslots_updated", "settings", undefined, { count: timeslots.length });
-                    } catch (e: any) {
-                      setTimeslotMsg("Failed to save: " + (e?.message ?? "Unknown error"));
-                    } finally { setTimeslotSaving(false); }
-                  }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50 shadow-orange" style={{ background: "#FF8C00" }}>
-                    {timeslotSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> Save Timeslots</>}
-                  </button>
-                </div>
-                {timeslotMsg && (
-                  <p className={`text-xs ${timeslotMsg.startsWith("Failed") ? "text-destructive" : "text-green-600 font-medium"}`}>{timeslotMsg}</p>
-                )}
-              </div>
-            </div>
-
           </motion.div>
         )}
 
@@ -3163,8 +3162,8 @@ Expand the booking and upload photos using the camera section, then try again.`)
                 <button
                   onClick={() => {
                     setSecLogsLoading(true);
-                    supabase.from("security_logs").select("*").order("created_at", { ascending: false }).limit(200)
-                      .then(r => setSecLogs(r.data ?? [])).finally(() => setSecLogsLoading(false));
+                    (supabase.from("security_logs").select("*").order("created_at", { ascending: false }).limit(200) as any)
+                      .then((r: any) => setSecLogs(r.data ?? [])).finally(() => setSecLogsLoading(false));
                   }}
                   className="p-1.5 rounded-lg border border-border hover:bg-muted transition"
                 >
@@ -3285,8 +3284,8 @@ Expand the booking and upload photos using the camera section, then try again.`)
               <button
                 onClick={() => {
                   setAuditLogsLoading(true);
-                  supabase.from("admin_audit_log").select("*, admin:admin_id(full_name)").order("created_at", { ascending: false }).limit(300)
-                    .then(({ data }) => setAuditLogs(data ?? []))
+                  (supabase.from("admin_audit_log").select("*, admin:admin_id(full_name)").order("created_at", { ascending: false }).limit(300) as any)
+                    .then(({ data }: any) => setAuditLogs(data ?? []))
                     .catch(() => {}).finally(() => setAuditLogsLoading(false));
                 }}
                 className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition"

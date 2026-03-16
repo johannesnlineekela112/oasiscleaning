@@ -161,7 +161,7 @@
   }
   .admin-tab-bg::before {
     content: '';
-    position: absolute;
+    position: fixed;
     inset: 0;
     background: hsl(var(--background) / 0.94);
     pointer-events: none;

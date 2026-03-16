@@ -77,11 +77,18 @@ export interface OverviewKPIs {
 
 const SUPABASE_URL = 'https://gzbkpwdnkhsbeygnynbh.supabase.co';
 
-async function callAnalytics(params: Record<string, string>): Promise<any> {
+async function callAnalytics(params: Record<string, string>, retries = 2): Promise<any> {
   // Proactively refresh to avoid stale-token 401s
   await supabase.auth.refreshSession().catch(() => {});
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Please sign in again to view analytics.');
+  if (!session?.access_token) {
+    if (retries > 0) {
+      // Wait for auth state to settle then retry
+      await new Promise(r => setTimeout(r, 1500));
+      return callAnalytics(params, retries - 1);
+    }
+    throw new Error('Please sign in again to view analytics.');
+  }
 
   const qs = new URLSearchParams(params).toString();
   const res = await fetch(

@@ -11,6 +11,7 @@ import UserDashboard from "./pages/UserDashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,19 @@ const App = () => (
                 loginPath="/admin"
               >
                 <AdminDashboard />
+              </RouteGuard>
+            }
+          />
+
+          {/* ── Super Admin dashboard ──────────────────────────────────── */}
+          <Route
+            path="/platform"
+            element={
+              <RouteGuard
+                requiredRoles={["super_admin"]}
+                loginPath="/admin"
+              >
+                <SuperAdminDashboard />
               </RouteGuard>
             }
           />
