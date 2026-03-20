@@ -323,7 +323,7 @@ export default function WinnyChatbot({ onOpenChange }: WinnyChatbotProps = {}) {
   return (
     <>
       {/* ── Floating button ─────────────────────────────────────────────── */}
-      <div className="fixed bottom-20 right-4 z-[700] flex flex-col items-end gap-2">
+      <div className="fixed bottom-16 right-3 z-[700] flex flex-col items-end gap-2 lg:bottom-4 lg:right-4">
         {/* Tooltip bubble */}
         <AnimatePresence>
           {!open && pulse && (
@@ -340,7 +340,7 @@ export default function WinnyChatbot({ onOpenChange }: WinnyChatbotProps = {}) {
 
         <button
           onClick={() => handleSetOpen(o => !o)}
-          className="relative w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+          className="relative w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
           style={{ background: "linear-gradient(135deg, #0a1628 0%, #1a3a5c 100%)" }}
           aria-label="Open Winny chatbot"
         >
@@ -352,7 +352,7 @@ export default function WinnyChatbot({ onOpenChange }: WinnyChatbotProps = {}) {
           <AnimatePresence mode="wait">
             {open ? (
               <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
-                <ChevronDown className="w-6 h-6 text-white" />
+                <ChevronDown className="w-4 h-4 text-white" />
               </motion.div>
             ) : (
               <motion.div key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
@@ -378,7 +378,7 @@ export default function WinnyChatbot({ onOpenChange }: WinnyChatbotProps = {}) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            className="fixed bottom-36 right-4 z-[700] w-[calc(100vw-32px)] sm:w-[360px] max-h-[70vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-border"
+            className="fixed bottom-20 right-3 z-[700] w-[calc(100vw-24px)] sm:w-[300px] max-h-[50vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-border"
             style={{ background: "hsl(var(--card))" }}
           >
             {/* Header */}
@@ -388,7 +388,7 @@ export default function WinnyChatbot({ onOpenChange }: WinnyChatbotProps = {}) {
             >
               <div className="flex items-center gap-3">
                 {/* Avatar */}
-                <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-lg shrink-0"
+                <div className="w-7 h-7 rounded-full flex items-center justify-center font-black text-white text-sm shrink-0"
                   style={{ background: "linear-gradient(135deg,#FF8C00,#ffb347)" }}>
                   W
                 </div>
