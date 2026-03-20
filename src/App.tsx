@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { RouteGuard } from "@/components/RouteGuard";
 import BookingPage from "./pages/BookingPage";
+import LandingPage from "./pages/LandingPage";
 import CookieBanner from "./components/CookieBanner";
 import AuthPage from "./pages/AuthPage";
 import UserDashboard from "./pages/UserDashboard";
@@ -45,7 +46,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           {/* ── Public routes ──────────────────────────────────────────── */}
-          <Route path="/"            element={<BookingPage />} />
+          <Route path="/"            element={<LandingPage />} />
+          <Route path="/book"          element={<BookingPage />} />
           <Route path="/auth"        element={<AuthPage />} />
           <Route path="/admin"       element={<AdminLogin />} />
           <Route path="/admin/login" element={<AdminLogin />} />

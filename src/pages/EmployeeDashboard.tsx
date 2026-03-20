@@ -34,7 +34,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import MapPicker from "@/components/MapPicker";
-import logo from "@/assets/logo-car.png";
+import logo from "@/assets/logo-brand.png";
 import { AboutModal } from "@/components/AboutModal";
 import { useToastQueue, NotificationToastStack } from "@/components/NotificationToast";
 
@@ -509,7 +509,7 @@ const EmployeeDashboard = () => {
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-4 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => window.location.reload()} className="flex-shrink-0 flex items-center justify-center">
-            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" />
+            <img src={logo} alt="Oasis Pure Cleaning CC" className="h-8 sm:h-10 w-auto object-contain" />
           </button>
           <div className="min-w-0">
             <h1 className="font-display font-bold text-sm sm:text-base leading-tight truncate">Oasis Pure Cleaning CC</h1>

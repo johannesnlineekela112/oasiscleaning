@@ -35,7 +35,7 @@ import {
   Settings, Terminal, ToggleLeft, ToggleRight, Search, Filter,
   ChevronDown, AlertCircle, Loader2, Power, Ban,
 } from "lucide-react";
-import logo from "@/assets/logo1.png";
+import logo from "@/assets/logo-car.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SATab =

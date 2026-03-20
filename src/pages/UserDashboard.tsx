@@ -41,7 +41,7 @@ import { supabase } from "@/lib/supabase";
 import { getBoolSetting, SETTINGS_KEYS, getTimeslots, type TimeSlotSetting } from "@/lib/settingsService";
 import MapPicker, { LocationResult } from "@/components/MapPicker";
 import { useNavigate, Link } from "react-router-dom";
-import logo from "@/assets/logo-car.png";
+import logo from "@/assets/logo-brand.png";
 import { AboutModal } from "@/components/AboutModal";
 import WinnyChatbot from "@/components/WinnyChatbot";
 import ReviewPrompt from "@/components/ReviewPrompt";
@@ -886,8 +886,8 @@ const UserDashboard = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-lg gap-2">
         <button onClick={() => window.location.reload()} className="flex items-center gap-2 min-w-0">
-          <img src={logo} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain flex-shrink-0" />
-          <div className="min-w-0 hidden sm:block">
+          <img src={logo} alt="Oasis Pure Cleaning CC" className="h-8 sm:h-10 w-auto object-contain flex-shrink-0" />
+          <div className="min-w-0">
             <h1 className="font-display font-bold text-base leading-tight truncate">
               {activeTab === "loyalty" ? "Loyalty" : activeTab === "profile" ? "My Profile" : "My Bookings"}
             </h1>
