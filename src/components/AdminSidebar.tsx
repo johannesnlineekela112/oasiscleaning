@@ -114,7 +114,7 @@ export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: A
   return (
     <>
       {/* ── Desktop sidebar (always visible on lg+) ───────────────── */}
-      <aside className="hidden lg:flex w-52 xl:w-56 shrink-0 flex-col bg-card border-r border-border overflow-hidden">
+      <aside className="hidden lg:flex w-52 xl:w-56 shrink-0 flex-col bg-card border-r border-border overflow-hidden relative z-10 shadow-[2px_0_12px_rgba(0,0,0,0.08)]">
         <SidebarContent />
       </aside>
 

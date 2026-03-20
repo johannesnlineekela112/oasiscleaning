@@ -1,73 +1,86 @@
 /**
- * LandingPage.tsx
- *
- * Full public-facing marketing website for Oasis Pure Cleaning CC.
- * Features: animated hero, services, how-it-works, about, reviews,
- * pricing, contact/banking, Winny chatbot, admin-editable content.
+ * LandingPage.tsx — v2
+ * Fluid typography, true mobile layouts, all text from CMS
  */
-
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Phone, Mail, MessageCircle, ChevronDown, Star,
-  Check, ArrowRight, Sparkles, Droplets, Car, Shield,
-  Clock, Users, Award, Instagram, Facebook, Menu, X,
-  Zap, Crown, Leaf, ChevronRight, Quote,
+  MapPin, Phone, Mail, MessageCircle, ChevronDown, Star, Check,
+  ArrowRight, Sparkles, Droplets, Car, Shield, Clock, Award,
+  Instagram, Facebook, Menu, X, Zap, Crown, Leaf, Quote,
+  Users, Lock,
 } from "lucide-react";
 import { getAllWebsiteContent } from "@/lib/websiteService";
-import { getAllServices } from "@/lib/bookingService";
 import { supabase } from "@/lib/supabase";
 import WinnyChatbot from "@/components/WinnyChatbot";
 import logoBrand from "@/assets/logo-brand.png";
 import { getSessionUser, getUserProfile } from "@/lib/authService";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const DEFAULTS: Record<string,any> = {
+  hero: {
+    headline: "WE COME.\nYOU SHINE.",
+    subheadline: "Premium mobile car wash & detailing at your doorstep — anywhere in Windhoek.",
+    cta_primary: "Book a Wash", cta_secondary: "Our Services",
+    badge: "Serving Windhoek, Namibia",
+  },
+  about: {
+    title: "About Oasis Pure Cleaning CC",
+    story: "Born from a simple belief: your vehicle deserves exceptional care — and you deserve convenience. We bring professional-grade services directly to you, wherever you are in Windhoek.",
+    mission: "To deliver premium mobile car care that respects your time, protects your investment, and leaves every vehicle spotless.",
+    values: ["Professional & reliable","Eco-conscious cleaning","On-time, every time","Customer-first approach"],
+    founded_year: "2020", vehicles_washed: "2,500+", happy_customers: "800+", areas_served: "15+",
+  },
+  contact: {
+    phone: "+264 81 278 1123", whatsapp: "+264 81 278 1123",
+    email: "info@oasispurecleaning.com", address: "Windhoek, Namibia",
+    operating_hours: "Monday – Saturday: 07:00 – 19:00",
+    instagram: "", facebook: "",
+  },
+  how_it_works: {
+    steps: [
+      { icon: "map-pin",  title: "Book Online",    desc: "Choose your service and time slot in under 2 minutes." },
+      { icon: "truck",    title: "We Come to You", desc: "Our team arrives fully equipped — home, office, anywhere." },
+      { icon: "sparkles", title: "You Shine",      desc: "We only leave when your vehicle is spotless." },
+    ],
+  },
+  features: {
+    title: "Why Windhoek Chooses Oasis",
+    subtitle: "Professional standards you can see, feel, and trust.",
+    items: [
+      { icon: "map-pin", title: "We Come to You",      desc: "No queues, no travel. Book from anywhere." },
+      { icon: "shield",  title: "Vetted Professionals", desc: "Trained, background-checked, insured detailers." },
+      { icon: "leaf",    title: "Eco-Conscious",        desc: "Water-efficient and biodegradable products." },
+      { icon: "clock",   title: "On Time, Every Time",  desc: "Real-time updates so you never wait." },
+    ],
+  },
+  cta_band: {
+    headline: "Your car deserves better.", headline2: "Book today.",
+    body: "Spots fill fast — especially on weekends. Reserve your time slot now.",
+    cta1: "Book a Wash Now", cta2: "Create Free Account",
+  },
+  reviews_section: { title: "What Our Clients Say", subtitle: "Real reviews from verified Oasis customers." },
+  pricing_section: { title: "Unlimited Clean Rides", subtitle: "Subscribe and save — the more you wash, the more you save.", note: "All plans include loyalty points. Cancel anytime." },
+  footer: { tagline: "Premium mobile car wash & detailing in Windhoek, Namibia. We come to you.", copyright: "Oasis Pure Cleaning CC. All rights reserved." },
+};
 
-interface SiteContent {
-  hero:          Record<string, any>;
-  about:         Record<string, any>;
-  contact:       Record<string, any>;
-  how_it_works:  Record<string, any>;
-  gallery:       Record<string, any>;
-}
-
-interface ServiceRow {
-  id: number; name: string; description: string;
-  price_small: number; price_large: number; price_xl: number;
-  price_truck: number; is_addon: boolean; is_active: boolean;
-}
-
-interface Plan { plan_name: string; monthly_price: number; allowed_bookings_per_month: number; description: string; }
-interface Review { star_rating: number; review_comment: string | null; created_at: string; }
-
-// ─── Animated water drop particles ───────────────────────────────────────────
-const NUM_DROPS = 18;
-const drops = Array.from({ length: NUM_DROPS }, (_, i) => ({
-  id: i,
-  x: Math.random() * 100,
-  size: 6 + Math.random() * 14,
-  delay: Math.random() * 5,
-  dur: 3 + Math.random() * 4,
-  opacity: 0.08 + Math.random() * 0.18,
+const DROPS = Array.from({ length: 18 }, (_, i) => ({
+  id: i, x: Math.random() * 100, size: 5 + Math.random() * 12,
+  delay: Math.random() * 6, dur: 4 + Math.random() * 5, opacity: 0.06 + Math.random() * 0.14,
 }));
 
 function WaterDrops() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {drops.map(d => (
-        <motion.div
-          key={d.id}
+      {DROPS.map(d => (
+        <motion.div key={d.id}
           className="absolute rounded-full"
           style={{
-            left: `${d.x}%`,
-            width: d.size,
-            height: d.size * 1.3,
-            background: `radial-gradient(ellipse at 35% 35%, rgba(255,255,255,0.9), rgba(96,200,250,0.4))`,
+            left: `${d.x}%`, width: d.size, height: d.size * 1.35, top: "-6%",
+            background: "radial-gradient(ellipse at 35% 30%, rgba(255,255,255,0.9), rgba(96,190,255,0.3))",
             opacity: d.opacity,
-            top: "-5%",
           }}
-          animate={{ y: ["0vh", "110vh"] }}
+          animate={{ y: ["0vh", "112vh"] }}
           transition={{ duration: d.dur, delay: d.delay, repeat: Infinity, ease: "linear" }}
         />
       ))}
@@ -75,815 +88,643 @@ function WaterDrops() {
   );
 }
 
-// ─── Scroll-reveal wrapper ────────────────────────────────────────────────────
-function FadeUp({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
-    >
-      {children}
-    </motion.div>
+    >{children}</motion.div>
   );
 }
 
-// ─── Section heading ──────────────────────────────────────────────────────────
-function SectionHeading({ badge, title, subtitle }: { badge?: string; title: string; subtitle?: string }) {
+function SH({ badge, title, sub, light = false }: { badge?: string; title: string; sub?: string; light?: boolean }) {
   return (
-    <div className="text-center mb-14">
+    <div className="text-center mb-10 sm:mb-14">
       {badge && (
-        <FadeUp>
-          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-secondary bg-secondary/10 px-4 py-1.5 rounded-full mb-4">
-            <Sparkles className="w-3 h-3" /> {badge}
+        <Reveal>
+          <span className={`inline-flex items-center gap-1.5 font-bold uppercase px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4 ${light ? "bg-white/10 text-white/80 border border-white/10" : "bg-secondary/10 text-secondary border border-secondary/10"}`}
+            style={{ fontSize: "clamp(9px,1.8vw,11px)", letterSpacing: "0.18em" }}>
+            <Sparkles className="w-3 h-3 flex-shrink-0" /> {badge}
           </span>
-        </FadeUp>
+        </Reveal>
       )}
-      <FadeUp delay={0.08}>
-        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-foreground leading-tight mb-4">
-          {title}
-        </h2>
-      </FadeUp>
-      {subtitle && (
-        <FadeUp delay={0.16}>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">{subtitle}</p>
-        </FadeUp>
+      <Reveal delay={0.08}>
+        <h2 className={`font-display font-black leading-tight tracking-tight mb-2 sm:mb-3 ${light ? "text-white" : "text-foreground"}`}
+          style={{ fontSize: "clamp(1.55rem,4.5vw,3rem)" }}>{title}</h2>
+      </Reveal>
+      {sub && (
+        <Reveal delay={0.16}>
+          <p className={`max-w-xl mx-auto leading-relaxed ${light ? "text-white/60" : "text-muted-foreground"}`}
+            style={{ fontSize: "clamp(0.82rem,2vw,1.05rem)" }}>{sub}</p>
+        </Reveal>
       )}
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+const ICON: Record<string, React.ReactNode> = {
+  "map-pin":  <MapPin   className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+  "truck":    <Car      className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+  "sparkles": <Sparkles className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+  "shield":   <Shield   className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+  "leaf":     <Leaf     className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+  "clock":    <Clock    className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+};
 
 export default function LandingPage() {
-  const navigate  = useNavigate();
-  const [content, setContent]   = useState<SiteContent | null>(null);
-  const [services, setServices] = useState<ServiceRow[]>([]);
-  const [plans,    setPlans]    = useState<Plan[]>([]);
-  const [reviews,  setReviews]  = useState<Review[]>([]);
-  const [navOpen,  setNavOpen]  = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [userLink, setUserLink] = useState("/auth");   // will be /dashboard if logged in
-
-  const heroRef   = useRef<HTMLElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll();
-  const heroOpacity  = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
-  const heroY        = useTransform(scrollYProgress, [0, 0.25], ["0%", "15%"]);
+  const heroY = useTransform(scrollYProgress, [0, 0.2], ["0%", "12%"]);
+  const heroOp = useTransform(scrollYProgress, [0, 0.22], [1, 0]);
 
-  // ── Load data ──────────────────────────────────────────────────────────────
+  const [cms, setCms] = useState<Record<string,any>>(DEFAULTS);
+  const [services, setServices] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [navOpen, setNavOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [userLink, setUserLink] = useState("/auth");
+
   useEffect(() => {
     Promise.all([
       getAllWebsiteContent(),
       import("@/lib/bookingService").then(m => m.getAllServices()),
-      supabase.from("subscription_plans").select("plan_name,monthly_price,allowed_bookings_per_month,description").eq("status", "active").order("sort_order"),
-      supabase.from("reviews").select("star_rating,review_comment,created_at").eq("review_status", "published").order("created_at", { ascending: false }).limit(6),
-    ]).then(([wc, svcs, plansRes, revRes]) => {
-      setContent(wc as SiteContent);
-      setServices((svcs as any[]).filter((s: any) => s.is_active));
-      setPlans((plansRes.data ?? []) as Plan[]);
-      setReviews((revRes.data ?? []) as Review[]);
+      supabase.from("subscription_plans").select("plan_name,monthly_price,allowed_bookings_per_month,description").eq("status","active").order("sort_order"),
+      supabase.from("reviews").select("star_rating,review_comment,created_at").eq("review_status","published").order("created_at",{ascending:false}).limit(6),
+    ]).then(([wc, svcs, plansR, revR]) => {
+      setCms({ ...DEFAULTS, ...wc });
+      setServices((svcs as any[]).filter(s => s.is_active));
+      setPlans(plansR.data ?? []);
+      setReviews(revR.data ?? []);
     }).catch(() => {});
-
-    // Check if user is already logged in
-    getSessionUser().then(async (user) => {
-      if (user) {
-        const profile = await getUserProfile(user.id).catch(() => null);
-        if (profile?.role === "admin" || profile?.role === "super_admin") {
-          setUserLink("/admin/dashboard");
-        } else if (profile?.role === "employee") {
-          setUserLink("/employee");
-        } else {
-          setUserLink("/dashboard");
-        }
-      }
+    getSessionUser().then(async u => {
+      if (!u) return;
+      const p = await getUserProfile(u.id).catch(() => null);
+      if (p?.role === "admin" || p?.role === "super_admin") setUserLink("/admin/dashboard");
+      else if (p?.role === "employee") setUserLink("/employee");
+      else setUserLink("/dashboard");
     }).catch(() => {});
+    const fn = () => setScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  // ── Scroll shadow ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  const g = (sec: string) => ({ ...(DEFAULTS[sec] ?? {}), ...(cms[sec] ?? {}) });
+  const h = (k: string) => g("hero")[k];
+  const ab= (k: string) => g("about")[k];
+  const co= (k: string) => g("contact")[k];
+  const fe= (k: string) => g("features")[k];
+  const cb= (k: string) => g("cta_band")[k];
+  const ps= (k: string) => g("pricing_section")[k];
+  const rs= (k: string) => g("reviews_section")[k];
+  const ft= (k: string) => g("footer")[k];
+  const hw= () => g("how_it_works");
 
-  const hero     = content?.hero         ?? {};
-  const about    = content?.about        ?? {};
-  const contact  = content?.contact      ?? {};
-  const howItWorks = content?.how_it_works ?? {};
+  const mainSvc = services.filter(s => !s.is_addon);
+  const addons  = services.filter(s => s.is_addon);
+  const scrollTo = (id: string) => { setNavOpen(false); document.querySelector(id)?.scrollIntoView({ behavior:"smooth" }); };
 
-  const mainServices = services.filter(s => !s.is_addon);
-  const addons       = services.filter(s => s.is_addon);
+  const NAV = [
+    { label:"Services", href:"#services" }, { label:"How It Works", href:"#how-it-works" },
+    { label:"About", href:"#about" },       { label:"Pricing", href:"#pricing" },
+    { label:"Contact", href:"#contact" },
+  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
-      {/* ══ NAVBAR ═══════════════════════════════════════════════════════════ */}
+      {/* ── NAVBAR ─────────────────────────────────────────────────────────── */}
       <motion.nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? "bg-primary/95 backdrop-blur-md shadow-2xl" : "bg-transparent"
-        }`}
-        initial={{ y: -80 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-primary/96 backdrop-blur-md shadow-xl" : "bg-transparent"}`}
+        initial={{ y:-80 }} animate={{ y:0 }} transition={{ duration:0.55 }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4" style={{ height:"clamp(52px,8vw,64px)" }}>
           <Link to="/" className="flex-shrink-0">
-            <img src={logoBrand} alt="Oasis Pure Cleaning CC" className="h-9 w-auto object-contain" />
+            <img src={logoBrand} alt="Oasis Pure Cleaning CC"
+              className="w-auto object-contain" style={{ height:"clamp(2.5rem,6vw,3rem)" }} />
           </Link>
-
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
-            {[
-              { label: "Services", href: "#services" },
-              { label: "How It Works", href: "#how-it-works" },
-              { label: "About", href: "#about" },
-              { label: "Pricing", href: "#pricing" },
-              { label: "Contact", href: "#contact" },
-            ].map(item => (
-              <a
-                key={item.label}
-                href={item.href}
-                onClick={e => {
-                  e.preventDefault();
-                  document.querySelector(item.href)?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="text-sm font-semibold text-primary-foreground/80 hover:text-primary-foreground transition"
-              >
-                {item.label}
-              </a>
+          <div className="hidden lg:flex items-center gap-5 xl:gap-8">
+            {NAV.map(n => (
+              <button key={n.label} onClick={() => scrollTo(n.href)}
+                className="font-semibold text-primary-foreground/75 hover:text-primary-foreground transition whitespace-nowrap"
+                style={{ fontSize:"clamp(11px,1.6vw,14px)" }}>
+                {n.label}
+              </button>
             ))}
           </div>
-
-          {/* CTA buttons */}
-          <div className="hidden md:flex items-center gap-3">
-            <Link to={userLink}
-              className="text-sm font-semibold text-primary-foreground/80 hover:text-primary-foreground transition px-3 py-2">
+          <div className="hidden md:flex items-center gap-2.5">
+            <Link to={userLink} className="font-semibold text-primary-foreground/70 hover:text-primary-foreground transition px-2"
+              style={{ fontSize:"clamp(11px,1.5vw,13px)" }}>
               {userLink === "/auth" ? "Sign In" : "Dashboard"}
             </Link>
-            <Link to="/book"
-              className="flex items-center gap-2 bg-secondary text-secondary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition shadow-lg">
-              <Car className="w-4 h-4" /> Book Now
+            <Link to="/book" className="flex items-center gap-1.5 bg-secondary text-secondary-foreground font-bold rounded-xl hover:opacity-90 transition shadow-lg"
+              style={{ fontSize:"clamp(11px,1.5vw,14px)", padding:"clamp(0.45rem,1.2vw,0.65rem) clamp(0.9rem,2.5vw,1.3rem)" }}>
+              <Car className="w-3.5 h-3.5 flex-shrink-0" /> Book Now
             </Link>
           </div>
-
-          {/* Mobile menu toggle */}
-          <button
-            onClick={() => setNavOpen(o => !o)}
-            className="md:hidden text-primary-foreground p-2"
-          >
-            {navOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          <button onClick={() => setNavOpen(o => !o)} className="md:hidden text-primary-foreground p-1.5">
+            {navOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
-
-        {/* Mobile menu */}
         <AnimatePresence>
           {navOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="md:hidden bg-primary border-t border-white/10 overflow-hidden"
-            >
-              <div className="px-4 py-5 space-y-2">
-                {[
-                  { label: "Services", href: "#services" },
-                  { label: "How It Works", href: "#how-it-works" },
-                  { label: "About", href: "#about" },
-                  { label: "Pricing", href: "#pricing" },
-                  { label: "Contact", href: "#contact" },
-                ].map(item => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    onClick={e => {
-                      e.preventDefault();
-                      setNavOpen(false);
-                      document.querySelector(item.href)?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="block py-2.5 px-4 rounded-xl text-primary-foreground/80 hover:bg-white/10 font-semibold transition"
-                  >
-                    {item.label}
-                  </a>
+            <motion.div initial={{ height:0, opacity:0 }} animate={{ height:"auto", opacity:1 }} exit={{ height:0, opacity:0 }}
+              className="md:hidden overflow-hidden bg-primary border-t border-white/10">
+              <div className="px-4 py-3 grid grid-cols-2 gap-1.5">
+                {NAV.map(n => (
+                  <button key={n.label} onClick={() => scrollTo(n.href)}
+                    className="py-2.5 px-3 rounded-xl text-sm text-primary-foreground/80 hover:bg-white/10 font-semibold text-left transition">
+                    {n.label}
+                  </button>
                 ))}
-                <div className="pt-3 flex flex-col gap-2">
-                  <Link to={userLink} className="block py-2.5 px-4 text-center rounded-xl border border-white/20 text-primary-foreground font-semibold">
-                    {userLink === "/auth" ? "Sign In" : "My Dashboard"}
-                  </Link>
-                  <Link to="/book" className="block py-3 px-4 text-center rounded-xl bg-secondary text-secondary-foreground font-bold">
-                    Book Now
-                  </Link>
-                </div>
+              </div>
+              <div className="px-4 pb-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+                <Link to={userLink} onClick={() => setNavOpen(false)} className="py-2.5 text-center rounded-xl border border-white/20 text-primary-foreground font-semibold text-sm">
+                  {userLink === "/auth" ? "Sign In" : "Dashboard"}
+                </Link>
+                <Link to="/book" onClick={() => setNavOpen(false)} className="py-2.5 text-center rounded-xl bg-secondary text-secondary-foreground font-bold text-sm">
+                  Book Now
+                </Link>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.nav>
 
-      {/* ══ HERO ═════════════════════════════════════════════════════════════ */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden bg-primary">
-        {/* Animated water drops */}
+      {/* ── HERO ───────────────────────────────────────────────────────────── */}
+      <section ref={heroRef} className="relative min-h-[100svh] flex items-center overflow-hidden bg-primary">
         <WaterDrops />
-
-        {/* Radial glow */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full bg-secondary/20 blur-[120px]" />
-          <div className="absolute bottom-0 right-0 w-[500px] h-[400px] rounded-full bg-blue-500/10 blur-[100px]" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-secondary/20 blur-[100px]" style={{ width:"min(900px,120vw)", height:"min(450px,60vh)" }} />
+          <div className="absolute bottom-0 right-0 rounded-full bg-sky-500/10 blur-[80px]" style={{ width:"min(350px,50vw)", height:"min(280px,40vh)" }} />
         </div>
+        <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage:"linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px)", backgroundSize:"clamp(30px,5vw,60px) clamp(30px,5vw,60px)" }} />
 
-        {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "60px 60px"
-        }} />
+        <motion.div style={{ opacity:heroOp, y:heroY }} className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-20 pb-12 sm:pt-24 sm:pb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-12 items-center">
+            <div className="text-center lg:text-left">
+              <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ duration:.5 }}
+                className="inline-flex items-center gap-2 bg-white/10 border border-white/15 text-primary-foreground/85 font-bold uppercase rounded-full mb-5 sm:mb-6"
+                style={{ padding:"0.375rem 1rem", fontSize:"clamp(8px,1.8vw,11px)", letterSpacing:"0.18em" }}>
+                <MapPin className="w-3 h-3 text-secondary flex-shrink-0" /> {h("badge")}
+              </motion.div>
+              <motion.h1 initial={{ opacity:0,y:28 }} animate={{ opacity:1,y:0 }} transition={{ duration:.75,delay:.1 }}
+                className="font-display font-black text-white leading-[0.92] tracking-tight mb-4 sm:mb-5"
+                style={{ fontSize:"clamp(2.8rem,9.5vw,7.5rem)" }}>
+                {String(h("headline")||"WE COME.\nYOU SHINE.").split("\n").map((line: string, i: number) => (
+                  <span key={i} className={`block ${i > 0 ? "text-secondary" : ""}`}>{line}</span>
+                ))}
+              </motion.h1>
+              <motion.p initial={{ opacity:0,y:18 }} animate={{ opacity:1,y:0 }} transition={{ duration:.65,delay:.22 }}
+                className="text-primary-foreground/70 leading-relaxed mb-7 sm:mb-9 max-w-xl lg:max-w-none"
+                style={{ fontSize:"clamp(0.875rem,2.2vw,1.2rem)" }}>
+                {h("subheadline")}
+              </motion.p>
+              <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ duration:.6,delay:.36 }}
+                className="flex flex-wrap items-center gap-3 justify-center lg:justify-start">
+                <Link to="/book"
+                  className="group flex items-center gap-2 bg-secondary text-secondary-foreground font-bold rounded-2xl hover:scale-105 transition-transform shadow-2xl"
+                  style={{ padding:"clamp(0.6rem,1.8vw,0.9rem) clamp(1.2rem,3.5vw,2rem)", fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>
+                  <Car className="w-4 h-4 flex-shrink-0" /> {h("cta_primary")}
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <button onClick={() => scrollTo("#services")}
+                  className="flex items-center gap-2 text-primary-foreground/75 hover:text-primary-foreground border border-white/20 hover:bg-white/5 font-semibold rounded-2xl transition"
+                  style={{ padding:"clamp(0.6rem,1.8vw,0.9rem) clamp(1.2rem,3.5vw,2rem)", fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>
+                  {h("cta_secondary")} <ChevronDown className="w-4 h-4" />
+                </button>
+              </motion.div>
+            </div>
 
-        <motion.div
-          style={{ opacity: heroOpacity, y: heroY }}
-          className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-16 text-center"
-        >
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-primary-foreground/90 text-xs font-bold uppercase tracking-widest px-5 py-2 rounded-full mb-8"
-          >
-            <MapPin className="w-3.5 h-3.5 text-secondary" />
-            {hero.badge || "Serving Windhoek, Namibia"}
-          </motion.div>
-
-          {/* Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
-            className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white leading-none tracking-tight mb-6"
-          >
-            {(hero.headline || "WE COME.\nYOU SHINE.").split("\n").map((line: string, i: number) => (
-              <span key={i} className={`block ${i === 1 ? "text-secondary" : ""}`}>{line}</span>
-            ))}
-          </motion.h1>
-
-          {/* Sub */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
-            className="text-primary-foreground/75 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed mb-10"
-          >
-            {hero.subheadline || "Premium mobile car wash & detailing at your doorstep — anywhere in Windhoek."}
-          </motion.p>
-
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            <Link to="/book"
-              className="group flex items-center gap-2.5 bg-secondary text-secondary-foreground px-8 py-4 rounded-2xl text-base font-bold hover:scale-105 transition-transform shadow-2xl"
-            >
-              <Car className="w-5 h-5" />
-              {hero.cta_primary || "Book a Wash"}
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <button
-              onClick={() => document.querySelector("#services")?.scrollIntoView({ behavior: "smooth" })}
-              className="flex items-center gap-2 text-primary-foreground/80 hover:text-primary-foreground border border-white/20 px-8 py-4 rounded-2xl text-base font-semibold hover:bg-white/5 transition"
-            >
-              {hero.cta_secondary || "Our Services"}
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </motion.div>
-
-          {/* Stats strip */}
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.7 }}
-            className="mt-16 grid grid-cols-3 gap-6 max-w-xl mx-auto"
-          >
-            {[
-              { value: about.vehicles_washed || "2,500+", label: "Vehicles Washed" },
-              { value: about.happy_customers || "800+",   label: "Happy Clients" },
-              { value: about.areas_served    || "15+",    label: "Areas Served" },
-            ].map(s => (
-              <div key={s.label} className="text-center">
-                <p className="text-2xl sm:text-3xl font-black text-white">{s.value}</p>
-                <p className="text-xs text-primary-foreground/50 font-semibold uppercase tracking-wider mt-1">{s.label}</p>
-              </div>
-            ))}
-          </motion.div>
+            {/* Stats — side by side even on mobile */}
+            <motion.div initial={{ opacity:0,scale:.9 }} animate={{ opacity:1,scale:1 }} transition={{ duration:.7,delay:.5 }}
+              className="flex flex-row lg:flex-col items-center justify-center gap-3 sm:gap-4">
+              {[
+                { val: ab("vehicles_washed")||"2,500+", label:"Vehicles Washed", icon:<Car className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                { val: ab("happy_customers")||"800+",   label:"Happy Clients",   icon:<Users className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                { val: ab("areas_served")||"15+",       label:"Areas Served",    icon:<MapPin className="w-4 h-4 sm:w-5 sm:h-5" /> },
+              ].map(s => (
+                <div key={s.label} className="text-center bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl"
+                  style={{ padding:"clamp(0.5rem,1.8vw,0.9rem) clamp(0.75rem,2.5vw,1.25rem)" }}>
+                  <div className="text-secondary flex justify-center mb-1">{s.icon}</div>
+                  <p className="text-white font-black leading-none" style={{ fontSize:"clamp(1.3rem,3.5vw,2rem)" }}>{s.val}</p>
+                  <p className="text-primary-foreground/45 font-semibold uppercase tracking-wider mt-0.5" style={{ fontSize:"clamp(7px,1.2vw,10px)" }}>{s.label}</p>
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </motion.div>
 
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          animate={{ y: [0, 10, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-        >
-          <ChevronDown className="w-6 h-6 text-primary-foreground/40" />
+        <motion.div className="absolute bottom-5 left-1/2 -translate-x-1/2" animate={{ y:[0,7,0] }} transition={{ repeat:Infinity, duration:2 }}>
+          <ChevronDown className="w-5 h-5 text-primary-foreground/30" />
         </motion.div>
       </section>
 
-      {/* ══ HOW IT WORKS ═════════════════════════════════════════════════════ */}
-      <section id="how-it-works" className="py-24 bg-muted/30 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <SectionHeading badge="Simple Process" title="Done in 3 Easy Steps" subtitle="Getting your car professionally detailed has never been easier." />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Connector line */}
-            <div className="hidden md:block absolute top-16 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-secondary/30 via-secondary to-secondary/30" />
-
-            {(howItWorks.steps || [
-              { icon: "map-pin", title: "Book Online",    desc: "Choose your service, pick a date & time slot. Takes under 2 minutes." },
-              { icon: "truck",   title: "We Come to You", desc: "Our trained team arrives with all equipment — home, office, anywhere." },
-              { icon: "sparkles",title: "You Shine",      desc: "Sit back while we work our magic. Only leave when you're 100% happy." },
-            ]).map((step: any, i: number) => {
-              const icons: Record<string, React.ReactNode> = {
-                "map-pin":  <MapPin className="w-7 h-7" />,
-                "truck":    <Car className="w-7 h-7" />,
-                "sparkles": <Sparkles className="w-7 h-7" />,
-              };
-              return (
-                <FadeUp key={i} delay={i * 0.15}>
-                  <div className="relative text-center">
-                    <div className="w-20 h-20 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto mb-6 shadow-xl shadow-secondary/20 relative z-10">
-                      {icons[step.icon] || <Sparkles className="w-7 h-7" />}
-                      <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center border-2 border-card">
-                        {i + 1}
-                      </span>
-                    </div>
-                    <h3 className="font-display font-bold text-xl mb-3">{step.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{step.desc}</p>
+      {/* ── HOW IT WORKS — always 3-col; mobile descriptions below ──────── */}
+      <section id="how-it-works" className="py-14 sm:py-24 bg-muted/25 relative">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <SH badge="Simple Process" title="Done in 3 Easy Steps" sub="Getting your car professionally detailed has never been easier." />
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:gap-8 relative">
+            <div className="hidden sm:block absolute top-[4rem] sm:top-[5rem] left-[18%] right-[18%] h-0.5 bg-gradient-to-r from-secondary/20 via-secondary to-secondary/20" />
+            {(hw().steps || DEFAULTS.how_it_works.steps).map((step: any, i: number) => (
+              <Reveal key={i} delay={i * 0.12}>
+                <div className="text-center">
+                  <div className="rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto mb-2 sm:mb-4 shadow-lg shadow-secondary/20 relative z-10"
+                    style={{ width:"clamp(2.5rem,8vw,5rem)", height:"clamp(2.5rem,8vw,5rem)" }}>
+                    {ICON[step.icon] || <Sparkles />}
+                    <span className="absolute -top-1.5 -right-1.5 rounded-full bg-primary text-primary-foreground font-black flex items-center justify-center border-2 border-card"
+                      style={{ width:"clamp(1rem,3vw,1.5rem)", height:"clamp(1rem,3vw,1.5rem)", fontSize:"clamp(8px,1.5vw,11px)" }}>{i+1}</span>
                   </div>
-                </FadeUp>
-              );
-            })}
+                  <h3 className="font-bold leading-tight mb-1" style={{ fontSize:"clamp(0.72rem,2vw,1rem)" }}>{step.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed hidden sm:block" style={{ fontSize:"clamp(0.68rem,1.4vw,0.85rem)" }}>{step.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+          <div className="sm:hidden mt-4 space-y-2">
+            {(hw().steps || DEFAULTS.how_it_works.steps).map((step: any, i: number) => (
+              <div key={i} className="flex items-start gap-3 bg-card rounded-xl border border-border px-3 py-2.5">
+                <span className="w-5 h-5 rounded-full bg-secondary text-secondary-foreground font-black flex items-center justify-center flex-shrink-0 text-[10px] mt-0.5">{i+1}</span>
+                <div>
+                  <p className="font-bold text-sm">{step.title}</p>
+                  <p className="text-muted-foreground text-xs mt-0.5 leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ══ SERVICES ═════════════════════════════════════════════════════════ */}
-      <section id="services" className="py-24 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <SectionHeading badge="What We Do" title="Services Tailored for Every Vehicle" subtitle="Professional-grade cleaning with attention to every detail — for all vehicle sizes." />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-            {(mainServices.length > 0 ? mainServices : [
-              { id: 1, name: "Basic Wash (Interior)", description: "Interior vacuum, wipe-down & window clean", price_small: 60, price_large: 80, price_xl: 100, price_truck: 180 },
-              { id: 2, name: "Basic Wash (Exterior)", description: "Exterior hand wash, rinse & dry", price_small: 80, price_large: 100, price_xl: 130, price_truck: 250 },
-              { id: 3, name: "Full Detailing",        description: "Interior + exterior full detail & polish", price_small: 150, price_large: 180, price_xl: 250, price_truck: 450 },
+      {/* ── SERVICES — horizontal scroll on mobile ────────────────────────── */}
+      <section id="services" className="py-14 sm:py-24 bg-background">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <SH badge="What We Do" title="Services for Every Vehicle" sub="Professional-grade cleaning for all vehicle sizes." />
+          <div className="flex gap-4 overflow-x-auto pb-3 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 snap-x snap-mandatory sm:snap-none -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-none">
+            {(mainSvc.length > 0 ? mainSvc : [
+              { id:1, name:"Basic Wash (Interior)",description:"Interior vacuum, wipe-down & window clean",price_small:60,price_large:80,price_xl:100,price_truck:180 },
+              { id:2, name:"Basic Wash (Exterior)",description:"Exterior hand wash, rinse & dry",price_small:80,price_large:100,price_xl:130,price_truck:250 },
+              { id:3, name:"Full Detailing",description:"Interior + exterior full detail & polish",price_small:150,price_large:180,price_xl:250,price_truck:450 },
             ]).map((svc: any, i: number) => (
-              <FadeUp key={svc.id} delay={i * 0.1}>
-                <div className="group relative bg-card rounded-2xl overflow-hidden border border-border hover:border-secondary/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 flex flex-col">
-                  {/* Visual top */}
-                  <div className="h-40 bg-gradient-to-br from-primary via-primary/80 to-secondary/40 relative overflow-hidden flex items-center justify-center">
-                    <div className="absolute inset-0 opacity-10" style={{
-                      backgroundImage: "radial-gradient(circle at 70% 80%, #FF8C00 0%, transparent 60%)"
-                    }} />
-                    <Droplets className="w-16 h-16 text-white/20 absolute -right-4 -bottom-2" />
-                    <div className="relative z-10 text-center px-6">
-                      <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto mb-2">
-                        <Car className="w-7 h-7 text-secondary" />
-                      </div>
+              <Reveal key={svc.id} delay={i * 0.1}
+                className="flex-shrink-0 snap-start sm:snap-align-none" style={{ minWidth:"min(74vw,270px)" }}>
+                <div className="bg-card rounded-2xl border border-border hover:border-secondary/50 transition-all hover:shadow-xl hover:-translate-y-0.5 flex flex-col h-full">
+                  <div className="rounded-t-2xl bg-gradient-to-br from-primary to-secondary/20 relative overflow-hidden flex items-center justify-center" style={{ height:"clamp(90px,15vw,140px)" }}>
+                    <Droplets className="absolute -right-2 -bottom-1 text-white/10" style={{ width:"clamp(2.5rem,8vw,4rem)", height:"clamp(2.5rem,8vw,4rem)" }} />
+                    <div className="rounded-xl bg-white/10 border border-white/15 flex items-center justify-center relative z-10" style={{ width:"clamp(2.2rem,6vw,3rem)", height:"clamp(2.2rem,6vw,3rem)" }}>
+                      <Car className="text-secondary" style={{ width:"clamp(1rem,3vw,1.5rem)", height:"clamp(1rem,3vw,1.5rem)" }} />
                     </div>
                   </div>
-                  {/* Content */}
-                  <div className="p-6 flex-1 flex flex-col">
-                    <h3 className="font-display font-bold text-lg mb-2">{svc.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-5 flex-1">{svc.description}</p>
-                    {/* Pricing grid */}
-                    <div className="grid grid-cols-2 gap-2 mb-5">
-                      {[
-                        { label: "Small",  val: svc.price_small },
-                        { label: "Large",  val: svc.price_large },
-                        { label: "XL",     val: svc.price_xl },
-                        { label: "Truck",  val: svc.price_truck },
-                      ].map(p => (
-                        <div key={p.label} className="bg-muted/60 rounded-xl px-3 py-2 text-center">
-                          <p className="text-[11px] text-muted-foreground font-medium">{p.label}</p>
-                          <p className="text-sm font-bold text-foreground">N$ {p.val}</p>
+                  <div className="flex flex-col flex-1" style={{ padding:"clamp(0.75rem,2.5vw,1.25rem)" }}>
+                    <h3 className="font-bold mb-1.5 leading-tight" style={{ fontSize:"clamp(0.8rem,2vw,1rem)" }}>{svc.name}</h3>
+                    <p className="text-muted-foreground mb-3 flex-1" style={{ fontSize:"clamp(0.7rem,1.5vw,0.83rem)" }}>{svc.description}</p>
+                    <div className="grid grid-cols-4 gap-1 mb-3">
+                      {[["Small",svc.price_small],["Large",svc.price_large],["XL",svc.price_xl],["Truck",svc.price_truck]].map(([l,v]) => (
+                        <div key={l as string} className="bg-muted/60 rounded-lg py-1 text-center">
+                          <p className="text-muted-foreground font-medium" style={{ fontSize:"clamp(7px,1.2vw,9px)" }}>{l}</p>
+                          <p className="font-bold" style={{ fontSize:"clamp(0.6rem,1.3vw,0.75rem)" }}>N${v}</p>
                         </div>
                       ))}
                     </div>
-                    <Link to="/book" className="block text-center bg-secondary/10 hover:bg-secondary/20 text-secondary py-2.5 rounded-xl text-sm font-bold transition">
-                      Book This Service
+                    <Link to="/book" className="block text-center bg-secondary/10 hover:bg-secondary/20 text-secondary py-2 rounded-xl font-bold transition" style={{ fontSize:"clamp(0.7rem,1.5vw,0.82rem)" }}>
+                      Book This
                     </Link>
                   </div>
                 </div>
-              </FadeUp>
+              </Reveal>
             ))}
           </div>
-
-          {/* Add-ons */}
           {addons.length > 0 && (
-            <FadeUp>
-              <div className="bg-muted/30 rounded-2xl border border-border p-6">
-                <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-4">Available Add-ons</p>
-                <div className="flex flex-wrap gap-3">
+            <Reveal delay={0.2} className="mt-4">
+              <div className="bg-muted/30 rounded-2xl border border-border p-4">
+                <p className="font-bold text-muted-foreground uppercase tracking-widest mb-2.5" style={{ fontSize:"clamp(8px,1.2vw,10px)" }}>Add-ons Available</p>
+                <div className="flex flex-wrap gap-2">
                   {addons.map((a: any) => (
-                    <div key={a.id} className="flex items-center gap-2 bg-card px-4 py-2 rounded-xl border border-border text-sm">
-                      <Sparkles className="w-3.5 h-3.5 text-secondary" />
-                      <span className="font-semibold">{a.name}</span>
-                      <span className="text-muted-foreground">from N$ {a.price_small}</span>
+                    <div key={a.id} className="flex items-center gap-1.5 bg-card px-3 py-1.5 rounded-xl border border-border">
+                      <Sparkles className="w-3 h-3 text-secondary flex-shrink-0" />
+                      <span className="font-semibold" style={{ fontSize:"clamp(0.68rem,1.4vw,0.8rem)" }}>{a.name}</span>
+                      <span className="text-muted-foreground" style={{ fontSize:"clamp(0.63rem,1.2vw,0.73rem)" }}>from N${a.price_small}</span>
                     </div>
                   ))}
                 </div>
               </div>
-            </FadeUp>
+            </Reveal>
           )}
         </div>
       </section>
 
-      {/* ══ WHY CHOOSE OASIS ═════════════════════════════════════════════════ */}
-      <section className="py-24 bg-primary relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-          <SectionHeading badge="Our Advantage" title="Why Windhoek Chooses Oasis" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              { icon: <MapPin className="w-6 h-6" />,  title: "We Come to You",     desc: "No queues, no travel. Book from anywhere and we arrive fully equipped." },
-              { icon: <Shield className="w-6 h-6" />,  title: "Vetted Professionals", desc: "Every detailer is trained, background-checked, and fully insured." },
-              { icon: <Leaf className="w-6 h-6" />,    title: "Eco-Conscious",       desc: "Water-efficient methods and biodegradable products — clean car, clean planet." },
-              { icon: <Clock className="w-6 h-6" />,   title: "On Time, Every Time", desc: "Real-time tracking and SMS alerts so you're never left waiting." },
-            ].map((item, i) => (
-              <FadeUp key={i} delay={i * 0.1}>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition">
-                  <div className="w-12 h-12 rounded-xl bg-secondary/20 text-secondary flex items-center justify-center mb-4">
-                    {item.icon}
+      {/* ── WHY OASIS — 2×2 on mobile ───────────────────────────────────── */}
+      <section className="py-14 sm:py-24 bg-primary relative overflow-hidden">
+        <div className="absolute top-0 right-0 rounded-full bg-secondary/10 blur-3xl" style={{ width:"min(24rem,60vw)", height:"min(24rem,60vw)" }} />
+        <div className="absolute bottom-0 left-0 rounded-full bg-sky-500/10 blur-3xl" style={{ width:"min(16rem,40vw)", height:"min(16rem,40vw)" }} />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <SH light badge="Our Advantage" title={fe("title")} sub={fe("subtitle")} />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {(fe("items") || DEFAULTS.features.items).map((item: any, i: number) => (
+              <Reveal key={i} delay={i * 0.09}>
+                <div className="bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl hover:bg-white/10 transition" style={{ padding:"clamp(0.75rem,2.5vw,1.5rem)" }}>
+                  <div className="rounded-lg sm:rounded-xl bg-secondary/15 text-secondary flex items-center justify-center mb-2.5 sm:mb-4" style={{ width:"clamp(2rem,5vw,2.75rem)", height:"clamp(2rem,5vw,2.75rem)" }}>
+                    {ICON[item.icon] || <Sparkles />}
                   </div>
-                  <h3 className="font-bold text-white text-lg mb-2">{item.title}</h3>
-                  <p className="text-primary-foreground/60 text-sm leading-relaxed">{item.desc}</p>
+                  <h3 className="font-bold text-white mb-1 sm:mb-2 leading-tight" style={{ fontSize:"clamp(0.75rem,1.8vw,1rem)" }}>{item.title}</h3>
+                  <p className="text-primary-foreground/55 leading-relaxed" style={{ fontSize:"clamp(0.65rem,1.4vw,0.82rem)" }}>{item.desc}</p>
                 </div>
-              </FadeUp>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══ PRICING / SUBSCRIPTIONS ══════════════════════════════════════════ */}
-      <section id="pricing" className="py-24 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <SectionHeading badge="Subscription Plans" title="Unlimited Clean Rides" subtitle="Subscribe and save — the more you wash, the more you save." />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* ── PRICING — horizontal scroll on mobile ─────────────────────────── */}
+      <section id="pricing" className="py-14 sm:py-24 bg-background">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <SH badge="Subscription Plans" title={ps("title")} sub={ps("subtitle")} />
+          <div className="flex gap-4 overflow-x-auto pb-3 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 snap-x snap-mandatory sm:snap-none -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-none">
             {(plans.length > 0 ? plans : [
-              { plan_name: "Basic",     monthly_price: 250, allowed_bookings_per_month: 2, description: "2 standard washes/month" },
-              { plan_name: "Standard",  monthly_price: 450, allowed_bookings_per_month: 4, description: "4 standard washes/month" },
-              { plan_name: "Premium",   monthly_price: 650, allowed_bookings_per_month: 4, description: "4 washes + 1 full detail" },
-              { plan_name: "Corporate", monthly_price: 0,   allowed_bookings_per_month: 99, description: "Fleet pricing — contact us" },
-            ]).map((plan, i) => {
-              const isPopular = i === 1;
+              { plan_name:"Basic",    monthly_price:250, allowed_bookings_per_month:2,  description:"2 standard washes/month" },
+              { plan_name:"Standard", monthly_price:450, allowed_bookings_per_month:4,  description:"4 standard washes/month" },
+              { plan_name:"Premium",  monthly_price:650, allowed_bookings_per_month:4,  description:"4 washes + 1 full detail" },
+              { plan_name:"Corporate",monthly_price:0,   allowed_bookings_per_month:99, description:"Fleet pricing — contact us" },
+            ]).map((plan: any, i: number) => {
+              const pop = i === 1;
               return (
-                <FadeUp key={i} delay={i * 0.1}>
-                  <div className={`relative rounded-2xl border p-7 flex flex-col ${
-                    isPopular
-                      ? "bg-secondary text-secondary-foreground border-secondary shadow-2xl shadow-secondary/30 scale-105"
-                      : "bg-card border-border"
-                  }`}>
-                    {isPopular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider px-4 py-1 rounded-full flex items-center gap-1">
-                        <Crown className="w-3 h-3" /> Most Popular
+                <Reveal key={i} delay={i*0.08}
+                  className="flex-shrink-0 snap-start sm:snap-align-none" style={{ minWidth:"min(65vw,200px)" }}>
+                  <div className={`relative rounded-2xl border flex flex-col h-full ${pop ? "bg-secondary text-secondary-foreground border-secondary shadow-2xl shadow-secondary/25 scale-[1.02] sm:scale-[1.04]" : "bg-card border-border"}`}
+                    style={{ padding:"clamp(0.9rem,2.5vw,1.6rem)" }}>
+                    {pop && (
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap" style={{ fontSize:"clamp(8px,1.3vw,10px)" }}>
+                        <Crown className="w-2.5 h-2.5" /> Most Popular
                       </div>
                     )}
-                    <h3 className={`font-display font-black text-xl mb-1 ${isPopular ? "" : ""}`}>{plan.plan_name}</h3>
-                    <p className={`text-sm mb-5 ${isPopular ? "text-secondary-foreground/80" : "text-muted-foreground"}`}>
-                      {plan.description}
-                    </p>
-                    <div className="mb-6">
-                      {plan.monthly_price > 0 ? (
-                        <>
-                          <span className="text-4xl font-black">N$ {plan.monthly_price}</span>
-                          <span className={`text-sm ml-1 ${isPopular ? "text-secondary-foreground/70" : "text-muted-foreground"}`}>/mo</span>
-                        </>
-                      ) : (
-                        <span className="text-2xl font-black">Custom</span>
-                      )}
+                    <h3 className="font-black mb-1" style={{ fontSize:"clamp(0.95rem,2.2vw,1.25rem)" }}>{plan.plan_name}</h3>
+                    <p className={`mb-3 leading-relaxed ${pop ? "text-secondary-foreground/75" : "text-muted-foreground"}`} style={{ fontSize:"clamp(0.67rem,1.3vw,0.78rem)" }}>{plan.description}</p>
+                    <div className="mb-4 flex items-baseline gap-1">
+                      {plan.monthly_price > 0
+                        ? <><span className="font-black" style={{ fontSize:"clamp(1.4rem,4.5vw,2.2rem)" }}>N${plan.monthly_price}</span><span className={`font-medium ${pop?"text-secondary-foreground/60":"text-muted-foreground"}`} style={{ fontSize:"clamp(0.65rem,1.1vw,0.75rem)" }}>/mo</span></>
+                        : <span className="font-black" style={{ fontSize:"clamp(1rem,3vw,1.4rem)" }}>Custom</span>}
                     </div>
-                    <div className="flex-1 space-y-2.5 mb-6">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className={`w-4 h-4 flex-shrink-0 ${isPopular ? "text-secondary-foreground" : "text-secondary"}`} />
-                        <span>{plan.allowed_bookings_per_month < 50 ? `${plan.allowed_bookings_per_month} washes/month` : "Unlimited washes"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className={`w-4 h-4 flex-shrink-0 ${isPopular ? "text-secondary-foreground" : "text-secondary"}`} />
-                        <span>Priority booking</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className={`w-4 h-4 flex-shrink-0 ${isPopular ? "text-secondary-foreground" : "text-secondary"}`} />
-                        <span>Loyalty points earned</span>
-                      </div>
+                    <div className="flex-1 space-y-1.5 mb-4">
+                      {[plan.allowed_bookings_per_month < 50 ? `${plan.allowed_bookings_per_month} washes/month` : "Unlimited washes", "Priority booking","Loyalty points"].map((f,j) => (
+                        <div key={j} className="flex items-center gap-1.5">
+                          <Check className={`w-3 h-3 flex-shrink-0 ${pop?"text-secondary-foreground":"text-secondary"}`} />
+                          <span style={{ fontSize:"clamp(0.67rem,1.3vw,0.78rem)" }}>{f}</span>
+                        </div>
+                      ))}
                     </div>
-                    <Link to="/dashboard"
-                      className={`block text-center py-3 rounded-xl font-bold text-sm transition ${
-                        isPopular
-                          ? "bg-primary text-primary-foreground hover:opacity-90"
-                          : "bg-secondary/10 text-secondary hover:bg-secondary/20"
-                      }`}>
+                    <Link to="/dashboard" className={`block text-center py-2 rounded-xl font-bold transition ${pop?"bg-primary text-primary-foreground hover:opacity-90":"bg-secondary/10 text-secondary hover:bg-secondary/20"}`}
+                      style={{ fontSize:"clamp(0.7rem,1.4vw,0.82rem)" }}>
                       Get Started
                     </Link>
                   </div>
-                </FadeUp>
+                </Reveal>
               );
             })}
           </div>
-          <FadeUp delay={0.3}>
-            <p className="text-center text-sm text-muted-foreground mt-6">
-              All plans include loyalty points. Cancel anytime. <Link to="/auth" className="text-secondary font-semibold hover:underline">Sign up free</Link> to manage your subscription.
+          <Reveal delay={0.3}>
+            <p className="text-center text-muted-foreground mt-4" style={{ fontSize:"clamp(0.7rem,1.4vw,0.82rem)" }}>
+              {ps("note")}{" "}<Link to="/auth" className="text-secondary font-semibold hover:underline">Sign up free</Link>
             </p>
-          </FadeUp>
+          </Reveal>
         </div>
       </section>
 
-      {/* ══ REVIEWS ══════════════════════════════════════════════════════════ */}
+      {/* ── REVIEWS — horizontal scroll on mobile ─────────────────────────── */}
       {reviews.length > 0 && (
-        <section className="py-24 bg-muted/30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <SectionHeading badge="Reviews" title="What Our Clients Say" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <section className="py-14 sm:py-24 bg-muted/25">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <SH badge="Reviews" title={rs("title")} sub={rs("subtitle")} />
+            <div className="flex gap-4 overflow-x-auto pb-3 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 snap-x snap-mandatory sm:snap-none -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-none">
               {reviews.map((rev, i) => (
-                <FadeUp key={i} delay={i * 0.1}>
-                  <div className="bg-card rounded-2xl border border-border p-6">
-                    <Quote className="w-8 h-8 text-secondary/30 mb-3" />
-                    <div className="flex gap-1 mb-3">
-                      {Array.from({ length: 5 }).map((_, j) => (
-                        <Star key={j} className={`w-4 h-4 ${j < rev.star_rating ? "fill-secondary text-secondary" : "text-border"}`} />
+                <Reveal key={i} delay={i*0.09}
+                  className="flex-shrink-0 snap-start sm:snap-align-none" style={{ minWidth:"min(75vw,280px)" }}>
+                  <div className="bg-card rounded-2xl border border-border h-full" style={{ padding:"clamp(0.9rem,2.5vw,1.5rem)" }}>
+                    <Quote className="text-secondary/20 mb-2" style={{ width:"clamp(1.5rem,4vw,2rem)", height:"clamp(1.5rem,4vw,2rem)" }} />
+                    <div className="flex gap-0.5 mb-2.5">
+                      {Array.from({length:5}).map((_,j) => (
+                        <Star key={j} className={`${j<rev.star_rating?"fill-secondary text-secondary":"text-border"}`} style={{ width:"clamp(10px,2vw,14px)", height:"clamp(10px,2vw,14px)" }} />
                       ))}
                     </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed mb-4">
-                      {rev.review_comment || "Great service! Very happy with the results."}
+                    <p className="text-muted-foreground leading-relaxed mb-2" style={{ fontSize:"clamp(0.72rem,1.5vw,0.875rem)" }}>
+                      {rev.review_comment || "Great service! Very professional and thorough."}
                     </p>
-                    <p className="text-xs text-muted-foreground/60">Verified Oasis Customer</p>
+                    <p className="text-muted-foreground/50 font-medium" style={{ fontSize:"clamp(0.62rem,1.1vw,0.72rem)" }}>Verified Oasis Customer</p>
                   </div>
-                </FadeUp>
+                </Reveal>
               ))}
             </div>
           </div>
         </section>
       )}
 
-      {/* ══ ABOUT ════════════════════════════════════════════════════════════ */}
-      <section id="about" className="py-24 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Text */}
+      {/* ── ABOUT ─────────────────────────────────────────────────────────── */}
+      <section id="about" className="py-14 sm:py-24 bg-background">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-14 items-center">
             <div>
-              <FadeUp>
-                <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-secondary bg-secondary/10 px-4 py-1.5 rounded-full mb-6">
-                  <Users className="w-3 h-3" /> Our Story
+              <Reveal>
+                <span className="inline-flex items-center gap-1.5 text-secondary bg-secondary/10 border border-secondary/10 font-bold uppercase rounded-full mb-4 sm:mb-6" style={{ padding:"0.375rem 0.875rem", fontSize:"clamp(8px,1.4vw,11px)", letterSpacing:"0.18em" }}>
+                  <Users className="w-3 h-3 flex-shrink-0" /> Our Story
                 </span>
-              </FadeUp>
-              <FadeUp delay={0.1}>
-                <h2 className="font-display text-3xl sm:text-4xl font-black leading-tight mb-6">
-                  {about.title || "About Oasis Pure Cleaning CC"}
-                </h2>
-              </FadeUp>
-              <FadeUp delay={0.2}>
-                <p className="text-muted-foreground text-lg leading-relaxed mb-6">
-                  {about.story || "Oasis Pure Cleaning CC was born from a simple belief: your vehicle deserves exceptional care — and you deserve convenience. We bring professional-grade car wash and detailing services directly to you, wherever you are in Windhoek."}
-                </p>
-              </FadeUp>
-              <FadeUp delay={0.3}>
-                <div className="bg-muted/50 border border-border rounded-2xl p-6 mb-8">
-                  <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">Our Mission</p>
-                  <p className="text-foreground leading-relaxed">
-                    {about.mission || "To deliver premium mobile car care that respects your time, protects your investment, and leaves every vehicle spotless."}
-                  </p>
+              </Reveal>
+              <Reveal delay={0.1}>
+                <h2 className="font-display font-black leading-tight mb-3 sm:mb-4" style={{ fontSize:"clamp(1.45rem,4vw,2.8rem)" }}>{ab("title")}</h2>
+              </Reveal>
+              <Reveal delay={0.18}>
+                <p className="text-muted-foreground leading-relaxed mb-4 sm:mb-5" style={{ fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>{ab("story")}</p>
+              </Reveal>
+              <Reveal delay={0.24}>
+                <div className="bg-muted/50 border border-border rounded-xl sm:rounded-2xl mb-4" style={{ padding:"clamp(0.7rem,2vw,1.2rem)" }}>
+                  <p className="font-bold uppercase tracking-widest text-muted-foreground mb-1" style={{ fontSize:"clamp(8px,1.2vw,10px)" }}>Our Mission</p>
+                  <p className="text-foreground leading-relaxed" style={{ fontSize:"clamp(0.78rem,1.7vw,0.92rem)" }}>{ab("mission")}</p>
                 </div>
-              </FadeUp>
-              <FadeUp delay={0.4}>
-                <div className="grid grid-cols-2 gap-3">
-                  {(about.values || ["Professional & reliable", "Eco-conscious cleaning", "On-time, every time", "Customer-first approach"])
-                    .map((v: string, i: number) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <div className="w-5 h-5 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                          <Check className="w-3 h-3 text-secondary" />
-                        </div>
-                        <span className="font-medium">{v}</span>
+              </Reveal>
+              <Reveal delay={0.3}>
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                  {(ab("values") || DEFAULTS.about.values).map((v: string, i: number) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-2.5 h-2.5 text-secondary" />
                       </div>
-                    ))}
+                      <span className="font-medium" style={{ fontSize:"clamp(0.7rem,1.5vw,0.83rem)" }}>{v}</span>
+                    </div>
+                  ))}
                 </div>
-              </FadeUp>
+              </Reveal>
             </div>
-
-            {/* Visual */}
-            <FadeUp delay={0.2}>
+            <Reveal delay={0.2}>
               <div className="relative">
-                <div className="aspect-[4/3] rounded-3xl bg-gradient-to-br from-primary via-primary to-secondary/30 overflow-hidden flex items-center justify-center shadow-2xl">
-                  <div className="absolute inset-0 opacity-20" style={{
-                    backgroundImage: "radial-gradient(circle at 30% 40%, rgba(255,140,0,0.8) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(0,120,200,0.5) 0%, transparent 50%)"
-                  }} />
-                  <div className="relative z-10 text-center">
-                    <img src={logoBrand} alt="Oasis" className="h-20 w-auto object-contain mx-auto mb-6 drop-shadow-2xl" />
-                    <div className="grid grid-cols-3 gap-8">
+                <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary via-primary to-secondary/20 overflow-hidden shadow-2xl" style={{ aspectRatio:"4/3" }}>
+                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage:"radial-gradient(circle at 30% 40%, #FF8C00,transparent 50%),radial-gradient(circle at 70% 70%, rgba(0,120,200,.8),transparent 50%)" }} />
+                  <div className="relative z-10 h-full flex flex-col items-center justify-center" style={{ padding:"clamp(1rem,4vw,2rem)" }}>
+                    <img src={logoBrand} alt="Oasis" className="w-auto drop-shadow-2xl mb-4 sm:mb-6" style={{ height:"clamp(2.5rem,7vw,4.5rem)" }} />
+                    <div className="grid grid-cols-3 gap-2 sm:gap-5 w-full">
                       {[
-                        { val: about.founded_year || "2020", label: "Founded" },
-                        { val: about.vehicles_washed || "2,500+", label: "Washed" },
-                        { val: about.happy_customers || "800+", label: "Clients" },
+                        { val:ab("founded_year")||"2020", label:"Founded" },
+                        { val:ab("vehicles_washed")||"2,500+", label:"Washed" },
+                        { val:ab("happy_customers")||"800+", label:"Clients" },
                       ].map(s => (
                         <div key={s.label} className="text-center">
-                          <p className="text-2xl font-black text-white">{s.val}</p>
-                          <p className="text-xs text-white/60 uppercase tracking-wider mt-1">{s.label}</p>
+                          <p className="text-white font-black" style={{ fontSize:"clamp(1rem,3.5vw,2rem)" }}>{s.val}</p>
+                          <p className="text-white/45 uppercase tracking-wider" style={{ fontSize:"clamp(6px,1.1vw,9px)" }}>{s.label}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
-                {/* Floating badges */}
-                <motion.div
-                  animate={{ y: [-5, 5, -5] }} transition={{ duration: 3, repeat: Infinity }}
-                  className="absolute -top-4 -right-4 bg-secondary text-secondary-foreground text-xs font-bold px-4 py-2 rounded-full shadow-xl"
-                >
-                  <Award className="w-3 h-3 inline mr-1" /> Windhoek's Best
+                <motion.div animate={{ y:[-4,4,-4] }} transition={{ duration:3, repeat:Infinity }}
+                  className="absolute -top-3 -right-3 sm:-top-4 sm:-right-4 bg-secondary text-secondary-foreground font-bold px-2.5 sm:px-3 py-1.5 rounded-full shadow-xl" style={{ fontSize:"clamp(8px,1.3vw,11px)" }}>
+                  <Award className="w-3 h-3 inline mr-0.5" />Windhoek's Best
                 </motion.div>
-                <motion.div
-                  animate={{ y: [5, -5, 5] }} transition={{ duration: 4, repeat: Infinity }}
-                  className="absolute -bottom-4 -left-4 bg-card border border-border text-foreground text-xs font-bold px-4 py-2 rounded-full shadow-xl"
-                >
-                  <Zap className="w-3 h-3 inline mr-1 text-secondary" /> Book in 2 min
+                <motion.div animate={{ y:[4,-4,4] }} transition={{ duration:4, repeat:Infinity }}
+                  className="absolute -bottom-3 -left-3 sm:-bottom-4 sm:-left-4 bg-card border border-border font-bold px-2.5 sm:px-3 py-1.5 rounded-full shadow-xl" style={{ fontSize:"clamp(8px,1.3vw,11px)" }}>
+                  <Zap className="w-3 h-3 inline mr-0.5 text-secondary" />Book in 2 min
                 </motion.div>
               </div>
-            </FadeUp>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ══ CONTACT & BANKING ════════════════════════════════════════════════ */}
-      <section id="contact" className="py-24 bg-muted/30 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <SectionHeading badge="Get in Touch" title="Contact Us" subtitle="Ready to book or just have a question? We're always available." />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Contact details */}
-            <FadeUp>
-              <div className="bg-card rounded-2xl border border-border p-8 space-y-5">
-                <h3 className="font-display font-bold text-xl mb-6">Reach Out</h3>
-                {[
-                  { icon: <Phone className="w-5 h-5" />,        label: "Phone",          val: contact.phone || "+264 81 278 1123" },
-                  { icon: <MessageCircle className="w-5 h-5" />, label: "WhatsApp",       val: contact.whatsapp || "+264 81 278 1123" },
-                  { icon: <Mail className="w-5 h-5" />,          label: "Email",          val: contact.email || "info@oasispurecleaning.com" },
-                  { icon: <MapPin className="w-5 h-5" />,        label: "Location",       val: contact.address || "Windhoek, Namibia" },
-                  { icon: <Clock className="w-5 h-5" />,         label: "Hours",          val: contact.operating_hours || "Mon–Sat: 07:00 – 19:00" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
-                      {item.icon}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-0.5">{item.label}</p>
-                      <p className="font-semibold">{item.val}</p>
-                    </div>
-                  </div>
-                ))}
-                <div className="pt-4 flex gap-3">
-                  <a href={`tel:${(contact.phone || "").replace(/\s/g, "")}`}
-                    className="flex-1 flex items-center justify-center gap-2 bg-secondary text-secondary-foreground py-3 rounded-xl font-bold text-sm hover:opacity-90 transition">
-                    <Phone className="w-4 h-4" /> Call Us
-                  </a>
-                  <a href={`https://wa.me/${(contact.whatsapp || "264812781123").replace(/[^0-9]/g, "")}`}
-                    target="_blank" rel="noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl font-bold text-sm hover:opacity-90 transition">
-                    <MessageCircle className="w-4 h-4" /> WhatsApp
-                  </a>
-                </div>
-              </div>
-            </FadeUp>
-
-            {/* Banking details */}
-            <FadeUp delay={0.15}>
-              <div className="bg-card rounded-2xl border border-border p-8">
-                <h3 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-secondary" /> EFT Payment Details
-                </h3>
-                <div className="space-y-4">
+      {/* ── CONTACT ───────────────────────────────────────────────────────── */}
+      <section id="contact" className="py-14 sm:py-24 bg-muted/25 relative">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <SH badge="Get in Touch" title="Contact Us" sub="Ready to book or have a question? We are always available." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+            <Reveal>
+              <div className="bg-card rounded-2xl border border-border h-full" style={{ padding:"clamp(1rem,3vw,2rem)" }}>
+                <h3 className="font-bold mb-4 sm:mb-5" style={{ fontSize:"clamp(1rem,2.2vw,1.25rem)" }}>Reach Out</h3>
+                <div className="space-y-3">
                   {[
-                    { label: "Bank",           key: "eft_bank_name" },
-                    { label: "Account Name",   key: "eft_account_name" },
-                    { label: "Account Number", key: "eft_account_number" },
-                    { label: "Branch Code",    key: "eft_branch_code" },
-                    { label: "Reference",      key: "reference_format" },
+                    { icon:<Phone className="w-4 h-4" />,        label:"Phone",   val:co("phone")||"+264 81 278 1123" },
+                    { icon:<MessageCircle className="w-4 h-4" />, label:"WhatsApp",val:co("whatsapp")||"+264 81 278 1123" },
+                    { icon:<Mail className="w-4 h-4" />,          label:"Email",   val:co("email")||"info@oasispurecleaning.com" },
+                    { icon:<MapPin className="w-4 h-4" />,        label:"Location",val:co("address")||"Windhoek, Namibia" },
+                    { icon:<Clock className="w-4 h-4" />,         label:"Hours",   val:co("operating_hours")||"Mon–Sat: 07:00–19:00" },
                   ].map(item => (
-                    <div key={item.key} className="flex items-center justify-between py-3 border-b border-border/60 last:border-0">
-                      <span className="text-sm text-muted-foreground font-medium">{item.label}</span>
-                      <span className="font-bold text-sm text-right">—</span>
+                    <div key={item.label} className="flex items-start gap-3">
+                      <div className="rounded-lg sm:rounded-xl bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0" style={{ width:"clamp(1.8rem,4vw,2.25rem)", height:"clamp(1.8rem,4vw,2.25rem)" }}>{item.icon}</div>
+                      <div className="min-w-0">
+                        <p className="font-bold uppercase tracking-wider text-muted-foreground" style={{ fontSize:"clamp(7px,1.1vw,9px)" }}>{item.label}</p>
+                        <p className="font-semibold truncate" style={{ fontSize:"clamp(0.72rem,1.6vw,0.875rem)" }}>{item.val}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 bg-secondary/5 border border-secondary/20 rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    <strong className="text-foreground">Important:</strong> After making payment, please upload your proof of payment in the booking confirmation. Admin will verify and confirm your booking.
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <a href={`tel:${(co("phone")||"").replace(/\s/g,"")}`}
+                    className="flex items-center justify-center gap-1.5 bg-secondary text-secondary-foreground py-2.5 rounded-xl font-bold hover:opacity-90 transition" style={{ fontSize:"clamp(0.7rem,1.5vw,0.82rem)" }}>
+                    <Phone className="w-3.5 h-3.5" /> Call Us
+                  </a>
+                  <a href={`https://wa.me/${(co("whatsapp")||"264812781123").replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 bg-green-600 text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition" style={{ fontSize:"clamp(0.7rem,1.5vw,0.82rem)" }}>
+                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                  </a>
+                </div>
+              </div>
+            </Reveal>
+            <Reveal delay={0.12}>
+              <div className="bg-card rounded-2xl border border-border h-full flex flex-col" style={{ padding:"clamp(1rem,3vw,2rem)" }}>
+                <h3 className="font-bold mb-3 sm:mb-4 flex items-center gap-2" style={{ fontSize:"clamp(1rem,2.2vw,1.25rem)" }}>
+                  <Shield className="text-secondary flex-shrink-0" style={{ width:"clamp(16px,2.5vw,20px)", height:"clamp(16px,2.5vw,20px)" }} />
+                  EFT Payment Details
+                </h3>
+                <div className="flex-1 bg-muted/40 rounded-xl border border-dashed border-border flex flex-col items-center justify-center text-center mb-4" style={{ padding:"clamp(1.2rem,3.5vw,2.5rem)" }}>
+                  <Lock className="text-muted-foreground/30 mb-2.5" style={{ width:"clamp(2rem,5vw,2.5rem)", height:"clamp(2rem,5vw,2.5rem)" }} />
+                  <p className="font-bold mb-1" style={{ fontSize:"clamp(0.8rem,1.8vw,0.95rem)" }}>Banking details are private</p>
+                  <p className="text-muted-foreground leading-relaxed" style={{ fontSize:"clamp(0.7rem,1.4vw,0.8rem)" }}>Sign in to view full EFT banking details for payment.</p>
+                </div>
+                <div className="bg-secondary/5 border border-secondary/15 rounded-xl mb-3" style={{ padding:"clamp(0.6rem,1.8vw,0.9rem)" }}>
+                  <p className="text-muted-foreground leading-relaxed" style={{ fontSize:"clamp(0.65rem,1.2vw,0.75rem)" }}>
+                    <strong className="text-foreground">After payment:</strong> Upload proof in your booking confirmation. Admin will verify and confirm.
                   </p>
                 </div>
-                <div className="mt-4">
-                  <Link to="/auth" className="block text-center bg-primary text-primary-foreground py-3 rounded-xl font-bold text-sm hover:opacity-90 transition">
-                    Sign in to View Full Banking Details
-                  </Link>
-                </div>
+                <Link to="/auth" className="block text-center bg-primary text-primary-foreground py-2.5 rounded-xl font-bold hover:opacity-90 transition" style={{ fontSize:"clamp(0.72rem,1.4vw,0.85rem)" }}>
+                  Sign In to View Banking Details
+                </Link>
               </div>
-            </FadeUp>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ══ CTA BAND ═════════════════════════════════════════════════════════ */}
-      <section className="py-20 bg-secondary relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-10" style={{
-          backgroundImage: "radial-gradient(circle at 20% 50%, white 0%, transparent 60%), radial-gradient(circle at 80% 50%, white 0%, transparent 60%)"
-        }} />
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center relative z-10">
-          <FadeUp>
-            <h2 className="font-display text-3xl sm:text-5xl font-black text-secondary-foreground mb-4 leading-tight">
-              Your car deserves better. Book today.
+      {/* ── CTA BAND ──────────────────────────────────────────────────────── */}
+      <section className="py-14 sm:py-20 bg-secondary relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage:"radial-gradient(circle at 20% 50%,white,transparent 55%),radial-gradient(circle at 80% 50%,white,transparent 55%)" }} />
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center relative z-10">
+          <Reveal>
+            <h2 className="font-display font-black text-secondary-foreground leading-tight mb-3" style={{ fontSize:"clamp(1.6rem,5.5vw,3.2rem)" }}>
+              {cb("headline")} <span className="block sm:inline">{cb("headline2")}</span>
             </h2>
-          </FadeUp>
-          <FadeUp delay={0.1}>
-            <p className="text-secondary-foreground/80 text-lg mb-8">Spots fill fast — especially on weekends. Reserve your time slot now.</p>
-          </FadeUp>
-          <FadeUp delay={0.2}>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/book"
-                className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-2xl font-black text-base hover:scale-105 transition-transform shadow-2xl">
-                <Car className="w-5 h-5" /> Book a Wash Now
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p className="text-secondary-foreground/80 mb-6" style={{ fontSize:"clamp(0.85rem,2vw,1.05rem)" }}>{cb("body")}</p>
+          </Reveal>
+          <Reveal delay={0.2}>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link to="/book" className="flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black rounded-2xl hover:scale-105 transition-transform shadow-2xl" style={{ padding:"clamp(0.7rem,2vw,0.95rem) clamp(1.4rem,4vw,2.2rem)", fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>
+                <Car className="w-4 h-4" /> {cb("cta1")}
               </Link>
-              <Link to="/auth"
-                className="flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-secondary-foreground px-8 py-4 rounded-2xl font-bold text-base transition">
-                Create Free Account
+              <Link to="/auth" className="flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-secondary-foreground font-bold rounded-2xl transition" style={{ padding:"clamp(0.7rem,2vw,0.95rem) clamp(1.4rem,4vw,2.2rem)", fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>
+                {cb("cta2")}
               </Link>
             </div>
-          </FadeUp>
+          </Reveal>
         </div>
       </section>
 
-      {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
+      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
       <footer className="bg-primary text-primary-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-            {/* Brand */}
-            <div>
-              <img src={logoBrand} alt="Oasis Pure Cleaning" className="h-10 w-auto object-contain mb-4" />
-              <p className="text-primary-foreground/60 text-sm leading-relaxed mb-4">
-                Premium mobile car wash & detailing in Windhoek, Namibia. We come to you.
-              </p>
-              <div className="flex gap-3">
-                {contact.instagram && (
-                  <a href={contact.instagram} target="_blank" rel="noreferrer"
-                    className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition">
-                    <Instagram className="w-4 h-4" />
-                  </a>
-                )}
-                {contact.facebook && (
-                  <a href={contact.facebook} target="_blank" rel="noreferrer"
-                    className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition">
-                    <Facebook className="w-4 h-4" />
-                  </a>
-                )}
-              </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-8 mb-7 sm:mb-9">
+            <div className="col-span-2 sm:col-span-1">
+              <img src={logoBrand} alt="Oasis" className="w-auto mb-3 object-contain" style={{ height:"clamp(2.2rem,5.5vw,3rem)" }} />
+              <p className="text-primary-foreground/55 leading-relaxed" style={{ fontSize:"clamp(0.68rem,1.4vw,0.8rem)" }}>{ft("tagline")}</p>
+              {(co("instagram") || co("facebook")) && (
+                <div className="flex gap-2 mt-3">
+                  {co("instagram") && <a href={co("instagram")} target="_blank" rel="noreferrer" className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition"><Instagram className="w-3.5 h-3.5" /></a>}
+                  {co("facebook")  && <a href={co("facebook")}  target="_blank" rel="noreferrer" className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition"><Facebook  className="w-3.5 h-3.5" /></a>}
+                </div>
+              )}
             </div>
-
-            {/* Services */}
             <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-4 text-primary-foreground/50">Services</h4>
-              <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li><Link to="/book" className="hover:text-secondary transition">Basic Interior Wash</Link></li>
-                <li><Link to="/book" className="hover:text-secondary transition">Basic Exterior Wash</Link></li>
-                <li><Link to="/book" className="hover:text-secondary transition">Full Detailing</Link></li>
-                <li><Link to="/book" className="hover:text-secondary transition">Engine Bay Cleaning</Link></li>
+              <h4 className="font-bold uppercase tracking-widest mb-3 text-primary-foreground/40" style={{ fontSize:"clamp(7px,1.1vw,9px)" }}>Services</h4>
+              <ul className="space-y-1.5 text-primary-foreground/60" style={{ fontSize:"clamp(0.68rem,1.3vw,0.78rem)" }}>
+                {["Basic Interior","Basic Exterior","Full Detailing","Engine Bay"].map(s => (
+                  <li key={s}><Link to="/book" className="hover:text-secondary transition">{s}</Link></li>
+                ))}
               </ul>
             </div>
-
-            {/* Quick links */}
             <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-4 text-primary-foreground/50">Quick Links</h4>
-              <ul className="space-y-2 text-sm text-primary-foreground/70">
+              <h4 className="font-bold uppercase tracking-widest mb-3 text-primary-foreground/40" style={{ fontSize:"clamp(7px,1.1vw,9px)" }}>Quick Links</h4>
+              <ul className="space-y-1.5 text-primary-foreground/60" style={{ fontSize:"clamp(0.68rem,1.3vw,0.78rem)" }}>
                 <li><Link to="/book" className="hover:text-secondary transition">Book a Wash</Link></li>
                 <li><Link to="/auth" className="hover:text-secondary transition">Customer Portal</Link></li>
+                <li><Link to="/dashboard" className="hover:text-secondary transition">My Dashboard</Link></li>
                 <li><Link to="/admin" className="hover:text-secondary transition">Admin Login</Link></li>
-                <li><a href="#about" onClick={e => { e.preventDefault(); document.querySelector("#about")?.scrollIntoView({ behavior: "smooth" }); }} className="hover:text-secondary transition">About Us</a></li>
               </ul>
             </div>
-
-            {/* Contact */}
             <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-4 text-primary-foreground/50">Contact</h4>
-              <ul className="space-y-2.5 text-sm text-primary-foreground/70">
-                <li className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-secondary" />{contact.phone || "+264 81 278 1123"}</li>
-                <li className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-secondary" />{contact.email || "info@oasispurecleaning.com"}</li>
-                <li className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-secondary" />{contact.address || "Windhoek, Namibia"}</li>
-                <li className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-secondary" />Mon–Sat 07:00–19:00</li>
+              <h4 className="font-bold uppercase tracking-widest mb-3 text-primary-foreground/40" style={{ fontSize:"clamp(7px,1.1vw,9px)" }}>Contact</h4>
+              <ul className="space-y-1.5 text-primary-foreground/60" style={{ fontSize:"clamp(0.68rem,1.3vw,0.78rem)" }}>
+                <li className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-secondary flex-shrink-0" /><span className="truncate">{co("phone")||"+264 81 278 1123"}</span></li>
+                <li className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-secondary flex-shrink-0" /><span className="truncate">{co("email")||"info@..."}</span></li>
+                <li className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-secondary flex-shrink-0" />{co("address")||"Windhoek"}</li>
               </ul>
             </div>
           </div>
-
-          <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-primary-foreground/40">
-            <p>© {new Date().getFullYear()} Oasis Pure Cleaning CC. All rights reserved.</p>
-            <div className="flex items-center gap-4">
-              <span>Windhoek, Namibia</span>
-              <span>·</span>
+          <div className="border-t border-white/10 pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-primary-foreground/30" style={{ fontSize:"clamp(0.62rem,1.1vw,0.72rem)" }}>
+            <p>© {new Date().getFullYear()} {ft("copyright")}</p>
+            <div className="flex items-center gap-3">
+              <span>Windhoek, Namibia</span><span>·</span>
               <Link to="/book" className="hover:text-secondary transition">Book Now</Link>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* ══ WINNY CHATBOT ════════════════════════════════════════════════════ */}
       <WinnyChatbot />
     </div>
   );
