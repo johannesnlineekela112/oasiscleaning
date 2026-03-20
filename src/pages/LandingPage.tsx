@@ -1,15 +1,19 @@
 /**
- * LandingPage.tsx — v2
- * Fluid typography, true mobile layouts, all text from CMS
+ * LandingPage.tsx — v3
+ * - Larger logo in nav
+ * - Hero headline slides "OASIS" then "WE COME, YOU SHINE." separately
+ * - Stats block removed from hero
+ * - Services / pricing / reviews auto-slide in loops
+ * - All wording from CMS
  */
-import { useState, useEffect, useRef } from "react";
+
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Phone, Mail, MessageCircle, ChevronDown, Star, Check,
-  ArrowRight, Sparkles, Droplets, Car, Shield, Clock, Award,
-  Instagram, Facebook, Menu, X, Zap, Crown, Leaf, Quote,
-  Users, Lock,
+  MapPin, Phone, Mail, MessageCircle, ChevronDown, ChevronLeft, ChevronRight,
+  Star, Check, ArrowRight, Sparkles, Droplets, Car, Shield, Clock, Award,
+  Instagram, Facebook, Menu, X, Zap, Crown, Leaf, Quote, Users, Lock,
 } from "lucide-react";
 import { getAllWebsiteContent } from "@/lib/websiteService";
 import { supabase } from "@/lib/supabase";
@@ -17,53 +21,20 @@ import WinnyChatbot from "@/components/WinnyChatbot";
 import logoBrand from "@/assets/logo-brand.png";
 import { getSessionUser, getUserProfile } from "@/lib/authService";
 
-const DEFAULTS: Record<string,any> = {
-  hero: {
-    headline: "WE COME.\nYOU SHINE.",
-    subheadline: "Premium mobile car wash & detailing at your doorstep — anywhere in Windhoek.",
-    cta_primary: "Book a Wash", cta_secondary: "Our Services",
-    badge: "Serving Windhoek, Namibia",
-  },
-  about: {
-    title: "About Oasis Pure Cleaning CC",
-    story: "Born from a simple belief: your vehicle deserves exceptional care — and you deserve convenience. We bring professional-grade services directly to you, wherever you are in Windhoek.",
-    mission: "To deliver premium mobile car care that respects your time, protects your investment, and leaves every vehicle spotless.",
-    values: ["Professional & reliable","Eco-conscious cleaning","On-time, every time","Customer-first approach"],
-    founded_year: "2020", vehicles_washed: "2,500+", happy_customers: "800+", areas_served: "15+",
-  },
-  contact: {
-    phone: "+264 81 278 1123", whatsapp: "+264 81 278 1123",
-    email: "info@oasispurecleaning.com", address: "Windhoek, Namibia",
-    operating_hours: "Monday – Saturday: 07:00 – 19:00",
-    instagram: "", facebook: "",
-  },
-  how_it_works: {
-    steps: [
-      { icon: "map-pin",  title: "Book Online",    desc: "Choose your service and time slot in under 2 minutes." },
-      { icon: "truck",    title: "We Come to You", desc: "Our team arrives fully equipped — home, office, anywhere." },
-      { icon: "sparkles", title: "You Shine",      desc: "We only leave when your vehicle is spotless." },
-    ],
-  },
-  features: {
-    title: "Why Windhoek Chooses Oasis",
-    subtitle: "Professional standards you can see, feel, and trust.",
-    items: [
-      { icon: "map-pin", title: "We Come to You",      desc: "No queues, no travel. Book from anywhere." },
-      { icon: "shield",  title: "Vetted Professionals", desc: "Trained, background-checked, insured detailers." },
-      { icon: "leaf",    title: "Eco-Conscious",        desc: "Water-efficient and biodegradable products." },
-      { icon: "clock",   title: "On Time, Every Time",  desc: "Real-time updates so you never wait." },
-    ],
-  },
-  cta_band: {
-    headline: "Your car deserves better.", headline2: "Book today.",
-    body: "Spots fill fast — especially on weekends. Reserve your time slot now.",
-    cta1: "Book a Wash Now", cta2: "Create Free Account",
-  },
-  reviews_section: { title: "What Our Clients Say", subtitle: "Real reviews from verified Oasis customers." },
-  pricing_section: { title: "Unlimited Clean Rides", subtitle: "Subscribe and save — the more you wash, the more you save.", note: "All plans include loyalty points. Cancel anytime." },
-  footer: { tagline: "Premium mobile car wash & detailing in Windhoek, Namibia. We come to you.", copyright: "Oasis Pure Cleaning CC. All rights reserved." },
+// ─── Defaults ─────────────────────────────────────────────────────────────────
+const D: Record<string, any> = {
+  hero: { headline: "OASIS", subheadline2: "WE COME.\nYOU SHINE.", body: "Premium mobile car wash & detailing at your doorstep — anywhere in Windhoek.", cta_primary: "Book a Wash", cta_secondary: "Our Services", badge: "Serving Windhoek, Namibia" },
+  about: { title: "About Oasis Pure Cleaning CC", story: "Born from a simple belief: your vehicle deserves exceptional care — and you deserve convenience. We bring professional-grade services directly to you, wherever you are in Windhoek.", mission: "To deliver premium mobile car care that respects your time, protects your investment, and leaves every vehicle spotless.", values: ["Professional & reliable","Eco-conscious cleaning","On-time, every time","Customer-first approach"], founded_year: "2020", vehicles_washed: "2,500+", happy_customers: "800+", areas_served: "15+" },
+  contact: { phone: "+264 81 278 1123", whatsapp: "+264 81 278 1123", email: "info@oasispurecleaning.com", address: "Windhoek, Namibia", operating_hours: "Monday – Saturday: 07:00 – 19:00", instagram: "", facebook: "" },
+  how_it_works: { steps: [{ icon:"map-pin", title:"Book Online", desc:"Choose your service and time slot in under 2 minutes." }, { icon:"truck", title:"We Come to You", desc:"Our team arrives fully equipped — home, office, anywhere." }, { icon:"sparkles", title:"You Shine", desc:"We only leave when your vehicle is spotless." }] },
+  features: { title: "Why Windhoek Chooses Oasis", subtitle: "Professional standards you can see, feel, and trust.", items: [{ icon:"map-pin", title:"We Come to You", desc:"No queues, no travel. Book from anywhere." },{ icon:"shield", title:"Vetted Professionals", desc:"Trained, background-checked, insured detailers." },{ icon:"leaf", title:"Eco-Conscious", desc:"Water-efficient and biodegradable products." },{ icon:"clock", title:"On Time, Every Time", desc:"Real-time updates so you never wait." }] },
+  cta_band: { headline:"Your car deserves better.", headline2:"Book today.", body:"Spots fill fast — especially on weekends. Reserve your time slot now.", cta1:"Book a Wash Now", cta2:"Create Free Account" },
+  reviews_section: { title:"What Our Clients Say", subtitle:"Real reviews from verified Oasis customers." },
+  pricing_section: { title:"Unlimited Clean Rides", subtitle:"Subscribe and save — the more you wash, the more you save.", note:"All plans include loyalty points. Cancel anytime." },
+  footer: { tagline:"Premium mobile car wash & detailing in Windhoek, Namibia. We come to you.", copyright:"Oasis Pure Cleaning CC. All rights reserved." },
 };
 
+// ─── Water drops ──────────────────────────────────────────────────────────────
 const DROPS = Array.from({ length: 18 }, (_, i) => ({
   id: i, x: Math.random() * 100, size: 5 + Math.random() * 12,
   delay: Math.random() * 6, dur: 4 + Math.random() * 5, opacity: 0.06 + Math.random() * 0.14,
@@ -73,77 +44,125 @@ function WaterDrops() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {DROPS.map(d => (
-        <motion.div key={d.id}
-          className="absolute rounded-full"
-          style={{
-            left: `${d.x}%`, width: d.size, height: d.size * 1.35, top: "-6%",
-            background: "radial-gradient(ellipse at 35% 30%, rgba(255,255,255,0.9), rgba(96,190,255,0.3))",
-            opacity: d.opacity,
-          }}
-          animate={{ y: ["0vh", "112vh"] }}
-          transition={{ duration: d.dur, delay: d.delay, repeat: Infinity, ease: "linear" }}
-        />
+        <motion.div key={d.id} className="absolute rounded-full"
+          style={{ left:`${d.x}%`, width:d.size, height:d.size*1.35, top:"-6%",
+            background:"radial-gradient(ellipse at 35% 30%,rgba(255,255,255,0.9),rgba(96,190,255,0.3))", opacity:d.opacity }}
+          animate={{ y:["0vh","112vh"] }}
+          transition={{ duration:d.dur, delay:d.delay, repeat:Infinity, ease:"linear" }} />
       ))}
     </div>
   );
 }
 
-function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+// ─── Reveal ───────────────────────────────────────────────────────────────────
+function Reveal({ children, delay=0, className="" }: { children:React.ReactNode; delay?:number; className?:string }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={className}
-    >{children}</motion.div>
+    <motion.div initial={{ opacity:0, y:28 }} whileInView={{ opacity:1, y:0 }}
+      viewport={{ once:true, margin:"-50px" }} transition={{ duration:0.65, delay, ease:[0.22,1,0.36,1] }} className={className}>
+      {children}
+    </motion.div>
   );
 }
 
-function SH({ badge, title, sub, light = false }: { badge?: string; title: string; sub?: string; light?: boolean }) {
+// ─── Section heading ──────────────────────────────────────────────────────────
+function SH({ badge, title, sub, light=false }: { badge?:string; title:string; sub?:string; light?:boolean }) {
   return (
     <div className="text-center mb-10 sm:mb-14">
       {badge && (
         <Reveal>
-          <span className={`inline-flex items-center gap-1.5 font-bold uppercase px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4 ${light ? "bg-white/10 text-white/80 border border-white/10" : "bg-secondary/10 text-secondary border border-secondary/10"}`}
-            style={{ fontSize: "clamp(9px,1.8vw,11px)", letterSpacing: "0.18em" }}>
+          <span className={`inline-flex items-center gap-1.5 font-bold uppercase px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4 ${light?"bg-white/10 text-white/80 border border-white/10":"bg-secondary/10 text-secondary border border-secondary/10"}`}
+            style={{ fontSize:"clamp(9px,1.8vw,11px)", letterSpacing:"0.18em" }}>
             <Sparkles className="w-3 h-3 flex-shrink-0" /> {badge}
           </span>
         </Reveal>
       )}
       <Reveal delay={0.08}>
-        <h2 className={`font-display font-black leading-tight tracking-tight mb-2 sm:mb-3 ${light ? "text-white" : "text-foreground"}`}
-          style={{ fontSize: "clamp(1.55rem,4.5vw,3rem)" }}>{title}</h2>
+        <h2 className={`font-display font-black leading-tight tracking-tight mb-2 sm:mb-3 ${light?"text-white":"text-foreground"}`}
+          style={{ fontSize:"clamp(1.55rem,4.5vw,3rem)" }}>{title}</h2>
       </Reveal>
       {sub && (
         <Reveal delay={0.16}>
-          <p className={`max-w-xl mx-auto leading-relaxed ${light ? "text-white/60" : "text-muted-foreground"}`}
-            style={{ fontSize: "clamp(0.82rem,2vw,1.05rem)" }}>{sub}</p>
+          <p className={`max-w-xl mx-auto leading-relaxed ${light?"text-white/60":"text-muted-foreground"}`}
+            style={{ fontSize:"clamp(0.82rem,2vw,1.05rem)" }}>{sub}</p>
         </Reveal>
       )}
     </div>
   );
 }
 
+// ─── Auto-slide carousel ──────────────────────────────────────────────────────
+function AutoCarousel({ items, renderItem, interval=4000 }: {
+  items: any[]; renderItem: (item:any, i:number) => React.ReactNode; interval?:number;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [dir, setDir] = useState(1);
+  const timer = useRef<any>(null);
+
+  const advance = useCallback((d: number) => {
+    setDir(d);
+    setIdx(prev => (prev + d + items.length) % items.length);
+  }, [items.length]);
+
+  useEffect(() => {
+    timer.current = setInterval(() => advance(1), interval);
+    return () => clearInterval(timer.current);
+  }, [advance, interval]);
+
+  const variants = {
+    enter: (d: number) => ({ x: d > 0 ? "100%" : "-100%", opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit:  (d: number) => ({ x: d > 0 ? "-100%" : "100%", opacity: 0 }),
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl">
+      <AnimatePresence initial={false} custom={dir}>
+        <motion.div key={idx} custom={dir} variants={variants}
+          initial="enter" animate="center" exit="exit"
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}>
+          {renderItem(items[idx], idx)}
+        </motion.div>
+      </AnimatePresence>
+      {/* Dots */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        {items.map((_, i) => (
+          <button key={i} onClick={() => { setDir(i > idx ? 1 : -1); setIdx(i); clearInterval(timer.current); }}
+            className={`w-1.5 h-1.5 rounded-full transition-all ${i===idx?"bg-secondary w-4":"bg-white/40"}`} />
+        ))}
+      </div>
+      {/* Arrows */}
+      <button onClick={() => advance(-1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition">
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <button onClick={() => advance(1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition">
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+// ─── Icon map ─────────────────────────────────────────────────────────────────
 const ICON: Record<string, React.ReactNode> = {
-  "map-pin":  <MapPin   className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
-  "truck":    <Car      className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
-  "sparkles": <Sparkles className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
-  "shield":   <Shield   className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
-  "leaf":     <Leaf     className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
-  "clock":    <Clock    className="w-[clamp(14px,2.5vw,20px)] h-[clamp(14px,2.5vw,20px)]" />,
+  "map-pin":  <MapPin   className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "truck":    <Car      className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "sparkles": <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "shield":   <Shield   className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "leaf":     <Leaf     className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "clock":    <Clock    className="w-5 h-5 sm:w-6 sm:h-6" />,
 };
 
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
   const heroRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll();
-  const heroY = useTransform(scrollYProgress, [0, 0.2], ["0%", "12%"]);
-  const heroOp = useTransform(scrollYProgress, [0, 0.22], [1, 0]);
+  const heroY  = useTransform(scrollYProgress, [0,0.2],  ["0%","12%"]);
+  const heroOp = useTransform(scrollYProgress, [0,0.22], [1,0]);
 
-  const [cms, setCms] = useState<Record<string,any>>(DEFAULTS);
+  const [cms,      setCms]      = useState<Record<string,any>>(D);
   const [services, setServices] = useState<any[]>([]);
-  const [plans, setPlans] = useState<any[]>([]);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [navOpen, setNavOpen] = useState(false);
+  const [plans,    setPlans]    = useState<any[]>([]);
+  const [reviews,  setReviews]  = useState<any[]>([]);
+  const [navOpen,  setNavOpen]  = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [userLink, setUserLink] = useState("/auth");
 
@@ -152,9 +171,9 @@ export default function LandingPage() {
       getAllWebsiteContent(),
       import("@/lib/bookingService").then(m => m.getAllServices()),
       supabase.from("subscription_plans").select("plan_name,monthly_price,allowed_bookings_per_month,description").eq("status","active").order("sort_order"),
-      supabase.from("reviews").select("star_rating,review_comment,created_at").eq("review_status","published").order("created_at",{ascending:false}).limit(6),
-    ]).then(([wc, svcs, plansR, revR]) => {
-      setCms({ ...DEFAULTS, ...wc });
+      supabase.from("reviews").select("star_rating,review_comment,created_at").eq("review_status","published").order("created_at",{ascending:false}).limit(12),
+    ]).then(([wc,svcs,plansR,revR]) => {
+      setCms({ ...D, ...wc });
       setServices((svcs as any[]).filter(s => s.is_active));
       setPlans(plansR.data ?? []);
       setReviews(revR.data ?? []);
@@ -162,28 +181,41 @@ export default function LandingPage() {
     getSessionUser().then(async u => {
       if (!u) return;
       const p = await getUserProfile(u.id).catch(() => null);
-      if (p?.role === "admin" || p?.role === "super_admin") setUserLink("/admin/dashboard");
+      if (p?.role === "super_admin") setUserLink("/platform");
+      else if (p?.role === "admin") setUserLink("/admin/dashboard");
       else if (p?.role === "employee") setUserLink("/employee");
       else setUserLink("/dashboard");
     }).catch(() => {});
     const fn = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", fn, { passive: true });
+    window.addEventListener("scroll", fn, { passive:true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  const g = (sec: string) => ({ ...(DEFAULTS[sec] ?? {}), ...(cms[sec] ?? {}) });
-  const h = (k: string) => g("hero")[k];
-  const ab= (k: string) => g("about")[k];
-  const co= (k: string) => g("contact")[k];
-  const fe= (k: string) => g("features")[k];
-  const cb= (k: string) => g("cta_band")[k];
-  const ps= (k: string) => g("pricing_section")[k];
-  const rs= (k: string) => g("reviews_section")[k];
-  const ft= (k: string) => g("footer")[k];
-  const hw= () => g("how_it_works");
+  const g  = (sec: string) => ({ ...(D[sec]??{}), ...(cms[sec]??{}) });
+  const h  = (k: string) => g("hero")[k];
+  const ab = (k: string) => g("about")[k];
+  const co = (k: string) => g("contact")[k];
+  const fe = (k: string) => g("features")[k];
+  const cb = (k: string) => g("cta_band")[k];
+  const ps = (k: string) => g("pricing_section")[k];
+  const rs = (k: string) => g("reviews_section")[k];
+  const ft = (k: string) => g("footer")[k];
+  const hw = () => g("how_it_works");
 
   const mainSvc = services.filter(s => !s.is_addon);
   const addons  = services.filter(s => s.is_addon);
+  const displaySvc = mainSvc.length > 0 ? mainSvc : [
+    { id:1, name:"Basic Wash (Interior)",description:"Interior vacuum, wipe-down & window clean",price_small:60,price_large:80,price_xl:100,price_truck:180 },
+    { id:2, name:"Basic Wash (Exterior)",description:"Exterior hand wash, rinse & dry",price_small:80,price_large:100,price_xl:130,price_truck:250 },
+    { id:3, name:"Full Detailing",description:"Interior + exterior full detail & polish",price_small:150,price_large:180,price_xl:250,price_truck:450 },
+  ];
+  const displayPlans = plans.length > 0 ? plans : [
+    { plan_name:"Basic",    monthly_price:250, allowed_bookings_per_month:2,  description:"2 standard washes/month" },
+    { plan_name:"Standard", monthly_price:450, allowed_bookings_per_month:4,  description:"4 standard washes/month" },
+    { plan_name:"Premium",  monthly_price:650, allowed_bookings_per_month:4,  description:"4 washes + 1 full detail" },
+    { plan_name:"Corporate",monthly_price:0,   allowed_bookings_per_month:99, description:"Fleet pricing — contact us" },
+  ];
+
   const scrollTo = (id: string) => { setNavOpen(false); document.querySelector(id)?.scrollIntoView({ behavior:"smooth" }); };
 
   const NAV = [
@@ -192,41 +224,52 @@ export default function LandingPage() {
     { label:"Contact", href:"#contact" },
   ];
 
+  // ─── Headline animation — "OASIS" then "WE COME, YOU SHINE." slide in separately
+  const headline1 = h("headline") || "OASIS";
+  const headline2 = h("subheadline2") || "WE COME.\nYOU SHINE.";
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
-      {/* ── NAVBAR ─────────────────────────────────────────────────────────── */}
+      {/* ──── NAVBAR ──────────────────────────────────────────────────────── */}
       <motion.nav
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-primary/96 backdrop-blur-md shadow-xl" : "bg-transparent"}`}
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled?"bg-primary/96 backdrop-blur-md shadow-xl":"bg-transparent"}`}
         initial={{ y:-80 }} animate={{ y:0 }} transition={{ duration:0.55 }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4" style={{ height:"clamp(52px,8vw,64px)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4" style={{ height:"clamp(56px,9vw,72px)" }}>
+
+          {/* ── Logo ── LARGER for readability */}
           <Link to="/" className="flex-shrink-0">
             <img src={logoBrand} alt="Oasis Pure Cleaning CC"
-              className="w-auto object-contain" style={{ height:"clamp(2.5rem,6vw,3rem)" }} />
+              className="w-auto object-contain"
+              style={{ height:"clamp(2.8rem,7vw,3.75rem)" }} />
           </Link>
+
           <div className="hidden lg:flex items-center gap-5 xl:gap-8">
             {NAV.map(n => (
               <button key={n.label} onClick={() => scrollTo(n.href)}
-                className="font-semibold text-primary-foreground/75 hover:text-primary-foreground transition whitespace-nowrap"
-                style={{ fontSize:"clamp(11px,1.6vw,14px)" }}>
+                className="font-semibold text-primary-foreground/80 hover:text-primary-foreground transition whitespace-nowrap"
+                style={{ fontSize:"clamp(11px,1.5vw,14px)" }}>
                 {n.label}
               </button>
             ))}
           </div>
+
           <div className="hidden md:flex items-center gap-2.5">
             <Link to={userLink} className="font-semibold text-primary-foreground/70 hover:text-primary-foreground transition px-2"
-              style={{ fontSize:"clamp(11px,1.5vw,13px)" }}>
+              style={{ fontSize:"clamp(11px,1.4vw,13px)" }}>
               {userLink === "/auth" ? "Sign In" : "Dashboard"}
             </Link>
             <Link to="/book" className="flex items-center gap-1.5 bg-secondary text-secondary-foreground font-bold rounded-xl hover:opacity-90 transition shadow-lg"
-              style={{ fontSize:"clamp(11px,1.5vw,14px)", padding:"clamp(0.45rem,1.2vw,0.65rem) clamp(0.9rem,2.5vw,1.3rem)" }}>
+              style={{ fontSize:"clamp(11px,1.5vw,14px)", padding:"clamp(0.45rem,1.2vw,0.7rem) clamp(0.9rem,2.5vw,1.4rem)" }}>
               <Car className="w-3.5 h-3.5 flex-shrink-0" /> Book Now
             </Link>
           </div>
+
           <button onClick={() => setNavOpen(o => !o)} className="md:hidden text-primary-foreground p-1.5">
             {navOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
+
         <AnimatePresence>
           {navOpen && (
             <motion.div initial={{ height:0, opacity:0 }} animate={{ height:"auto", opacity:1 }} exit={{ height:0, opacity:0 }}
@@ -252,7 +295,7 @@ export default function LandingPage() {
         </AnimatePresence>
       </motion.nav>
 
-      {/* ── HERO ───────────────────────────────────────────────────────────── */}
+      {/* ──── HERO ────────────────────────────────────────────────────────── */}
       <section ref={heroRef} className="relative min-h-[100svh] flex items-center overflow-hidden bg-primary">
         <WaterDrops />
         <div className="absolute inset-0 pointer-events-none">
@@ -261,59 +304,65 @@ export default function LandingPage() {
         </div>
         <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage:"linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px)", backgroundSize:"clamp(30px,5vw,60px) clamp(30px,5vw,60px)" }} />
 
-        <motion.div style={{ opacity:heroOp, y:heroY }} className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-20 pb-12 sm:pt-24 sm:pb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-12 items-center">
-            <div className="text-center lg:text-left">
-              <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ duration:.5 }}
-                className="inline-flex items-center gap-2 bg-white/10 border border-white/15 text-primary-foreground/85 font-bold uppercase rounded-full mb-5 sm:mb-6"
-                style={{ padding:"0.375rem 1rem", fontSize:"clamp(8px,1.8vw,11px)", letterSpacing:"0.18em" }}>
-                <MapPin className="w-3 h-3 text-secondary flex-shrink-0" /> {h("badge")}
-              </motion.div>
-              <motion.h1 initial={{ opacity:0,y:28 }} animate={{ opacity:1,y:0 }} transition={{ duration:.75,delay:.1 }}
-                className="font-display font-black text-white leading-[0.92] tracking-tight mb-4 sm:mb-5"
-                style={{ fontSize:"clamp(2.8rem,9.5vw,7.5rem)" }}>
-                {String(h("headline")||"WE COME.\nYOU SHINE.").split("\n").map((line: string, i: number) => (
-                  <span key={i} className={`block ${i > 0 ? "text-secondary" : ""}`}>{line}</span>
-                ))}
-              </motion.h1>
-              <motion.p initial={{ opacity:0,y:18 }} animate={{ opacity:1,y:0 }} transition={{ duration:.65,delay:.22 }}
-                className="text-primary-foreground/70 leading-relaxed mb-7 sm:mb-9 max-w-xl lg:max-w-none"
-                style={{ fontSize:"clamp(0.875rem,2.2vw,1.2rem)" }}>
-                {h("subheadline")}
-              </motion.p>
-              <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ duration:.6,delay:.36 }}
-                className="flex flex-wrap items-center gap-3 justify-center lg:justify-start">
-                <Link to="/book"
-                  className="group flex items-center gap-2 bg-secondary text-secondary-foreground font-bold rounded-2xl hover:scale-105 transition-transform shadow-2xl"
-                  style={{ padding:"clamp(0.6rem,1.8vw,0.9rem) clamp(1.2rem,3.5vw,2rem)", fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>
-                  <Car className="w-4 h-4 flex-shrink-0" /> {h("cta_primary")}
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <button onClick={() => scrollTo("#services")}
-                  className="flex items-center gap-2 text-primary-foreground/75 hover:text-primary-foreground border border-white/20 hover:bg-white/5 font-semibold rounded-2xl transition"
-                  style={{ padding:"clamp(0.6rem,1.8vw,0.9rem) clamp(1.2rem,3.5vw,2rem)", fontSize:"clamp(0.82rem,1.8vw,1rem)" }}>
-                  {h("cta_secondary")} <ChevronDown className="w-4 h-4" />
-                </button>
-              </motion.div>
-            </div>
+        <motion.div style={{ opacity:heroOp, y:heroY }} className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-20 pb-12 sm:pt-24 sm:pb-16 text-center">
 
-            {/* Stats — side by side even on mobile */}
-            <motion.div initial={{ opacity:0,scale:.9 }} animate={{ opacity:1,scale:1 }} transition={{ duration:.7,delay:.5 }}
-              className="flex flex-row lg:flex-col items-center justify-center gap-3 sm:gap-4">
-              {[
-                { val: ab("vehicles_washed")||"2,500+", label:"Vehicles Washed", icon:<Car className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                { val: ab("happy_customers")||"800+",   label:"Happy Clients",   icon:<Users className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                { val: ab("areas_served")||"15+",       label:"Areas Served",    icon:<MapPin className="w-4 h-4 sm:w-5 sm:h-5" /> },
-              ].map(s => (
-                <div key={s.label} className="text-center bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl"
-                  style={{ padding:"clamp(0.5rem,1.8vw,0.9rem) clamp(0.75rem,2.5vw,1.25rem)" }}>
-                  <div className="text-secondary flex justify-center mb-1">{s.icon}</div>
-                  <p className="text-white font-black leading-none" style={{ fontSize:"clamp(1.3rem,3.5vw,2rem)" }}>{s.val}</p>
-                  <p className="text-primary-foreground/45 font-semibold uppercase tracking-wider mt-0.5" style={{ fontSize:"clamp(7px,1.2vw,10px)" }}>{s.label}</p>
-                </div>
-              ))}
+          {/* Badge */}
+          <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ duration:.5 }}
+            className="inline-flex items-center gap-2 bg-white/10 border border-white/15 text-primary-foreground/85 font-bold uppercase rounded-full mb-6 sm:mb-8"
+            style={{ padding:"0.375rem 1rem", fontSize:"clamp(8px,1.8vw,11px)", letterSpacing:"0.18em" }}>
+            <MapPin className="w-3 h-3 text-secondary flex-shrink-0" /> {h("badge")}
+          </motion.div>
+
+          {/* ── Headline: "OASIS" slides up FIRST */}
+          <div className="overflow-hidden mb-1 sm:mb-2">
+            <motion.div
+              initial={{ y:"100%", opacity:0 }}
+              animate={{ y:0, opacity:1 }}
+              transition={{ duration:0.85, delay:0.15, ease:[0.22,1,0.36,1] }}
+            >
+              <span className="block font-display font-black text-white leading-none tracking-tight"
+                style={{ fontSize:"clamp(3.5rem,14vw,10rem)", letterSpacing:"-0.02em" }}>
+                {headline1}
+              </span>
             </motion.div>
           </div>
+
+          {/* ── "WE COME. YOU SHINE." slides up SECOND (with delay) */}
+          <div className="overflow-hidden mb-6 sm:mb-8">
+            <motion.div
+              initial={{ y:"100%", opacity:0 }}
+              animate={{ y:0, opacity:1 }}
+              transition={{ duration:0.85, delay:0.55, ease:[0.22,1,0.36,1] }}
+            >
+              <span className="block font-display font-black text-secondary leading-tight tracking-tight"
+                style={{ fontSize:"clamp(1.1rem,4.5vw,3.5rem)" }}>
+                {String(headline2).replace("\\n"," · ")}
+              </span>
+            </motion.div>
+          </div>
+
+          {/* Body */}
+          <motion.p initial={{ opacity:0,y:18 }} animate={{ opacity:1,y:0 }} transition={{ duration:.65, delay:.9 }}
+            className="text-primary-foreground/70 leading-relaxed mb-8 sm:mb-10 max-w-xl mx-auto"
+            style={{ fontSize:"clamp(0.9rem,2.2vw,1.15rem)" }}>
+            {h("body") || h("subheadline")}
+          </motion.p>
+
+          {/* CTAs */}
+          <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ duration:.6, delay:1.1 }}
+            className="flex flex-wrap items-center gap-3 justify-center">
+            <Link to="/book"
+              className="group flex items-center gap-2 bg-secondary text-secondary-foreground font-bold rounded-2xl hover:scale-105 transition-transform shadow-2xl"
+              style={{ padding:"clamp(0.65rem,2vw,0.95rem) clamp(1.3rem,4vw,2.2rem)", fontSize:"clamp(0.85rem,1.8vw,1rem)" }}>
+              <Car className="w-4 h-4 flex-shrink-0" /> {h("cta_primary")}
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <button onClick={() => scrollTo("#services")}
+              className="flex items-center gap-2 text-primary-foreground/75 hover:text-primary-foreground border border-white/20 hover:bg-white/5 font-semibold rounded-2xl transition"
+              style={{ padding:"clamp(0.65rem,2vw,0.95rem) clamp(1.3rem,4vw,2.2rem)", fontSize:"clamp(0.85rem,1.8vw,1rem)" }}>
+              {h("cta_secondary")} <ChevronDown className="w-4 h-4" />
+            </button>
+          </motion.div>
         </motion.div>
 
         <motion.div className="absolute bottom-5 left-1/2 -translate-x-1/2" animate={{ y:[0,7,0] }} transition={{ repeat:Infinity, duration:2 }}>
@@ -321,17 +370,17 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ── HOW IT WORKS — always 3-col; mobile descriptions below ──────── */}
+      {/* ──── HOW IT WORKS ────────────────────────────────────────────────── */}
       <section id="how-it-works" className="py-14 sm:py-24 bg-muted/25 relative">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Simple Process" title="Done in 3 Easy Steps" sub="Getting your car professionally detailed has never been easier." />
-          <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:gap-8 relative">
-            <div className="hidden sm:block absolute top-[4rem] sm:top-[5rem] left-[18%] right-[18%] h-0.5 bg-gradient-to-r from-secondary/20 via-secondary to-secondary/20" />
-            {(hw().steps || DEFAULTS.how_it_works.steps).map((step: any, i: number) => (
-              <Reveal key={i} delay={i * 0.12}>
-                <div className="text-center">
-                  <div className="rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto mb-2 sm:mb-4 shadow-lg shadow-secondary/20 relative z-10"
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:gap-10 relative">
+            <div className="hidden sm:block absolute top-[4.5rem] left-[18%] right-[18%] h-px bg-gradient-to-r from-secondary/20 via-secondary to-secondary/20" />
+            {(hw().steps || D.how_it_works.steps).map((step: any, i: number) => (
+              <Reveal key={i} delay={i*0.12}>
+                <div className="text-center relative">
+                  <div className="rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto mb-2 sm:mb-5 shadow-lg shadow-secondary/20 relative z-10"
                     style={{ width:"clamp(2.5rem,8vw,5rem)", height:"clamp(2.5rem,8vw,5rem)" }}>
                     {ICON[step.icon] || <Sparkles />}
                     <span className="absolute -top-1.5 -right-1.5 rounded-full bg-primary text-primary-foreground font-black flex items-center justify-center border-2 border-card"
@@ -344,63 +393,39 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="sm:hidden mt-4 space-y-2">
-            {(hw().steps || DEFAULTS.how_it_works.steps).map((step: any, i: number) => (
+            {(hw().steps || D.how_it_works.steps).map((step: any, i: number) => (
               <div key={i} className="flex items-start gap-3 bg-card rounded-xl border border-border px-3 py-2.5">
                 <span className="w-5 h-5 rounded-full bg-secondary text-secondary-foreground font-black flex items-center justify-center flex-shrink-0 text-[10px] mt-0.5">{i+1}</span>
-                <div>
-                  <p className="font-bold text-sm">{step.title}</p>
-                  <p className="text-muted-foreground text-xs mt-0.5 leading-relaxed">{step.desc}</p>
-                </div>
+                <div><p className="font-bold text-sm">{step.title}</p><p className="text-muted-foreground text-xs mt-0.5 leading-relaxed">{step.desc}</p></div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── SERVICES — horizontal scroll on mobile ────────────────────────── */}
+      {/* ──── SERVICES — auto-slide carousel ──────────────────────────────── */}
       <section id="services" className="py-14 sm:py-24 bg-background">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="What We Do" title="Services for Every Vehicle" sub="Professional-grade cleaning for all vehicle sizes." />
-          <div className="flex gap-4 overflow-x-auto pb-3 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 snap-x snap-mandatory sm:snap-none -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-none">
-            {(mainSvc.length > 0 ? mainSvc : [
-              { id:1, name:"Basic Wash (Interior)",description:"Interior vacuum, wipe-down & window clean",price_small:60,price_large:80,price_xl:100,price_truck:180 },
-              { id:2, name:"Basic Wash (Exterior)",description:"Exterior hand wash, rinse & dry",price_small:80,price_large:100,price_xl:130,price_truck:250 },
-              { id:3, name:"Full Detailing",description:"Interior + exterior full detail & polish",price_small:150,price_large:180,price_xl:250,price_truck:450 },
-            ]).map((svc: any, i: number) => (
-              <Reveal key={svc.id} delay={i * 0.1}
-                className="flex-shrink-0 snap-start sm:snap-align-none" style={{ minWidth:"min(74vw,270px)" }}>
-                <div className="bg-card rounded-2xl border border-border hover:border-secondary/50 transition-all hover:shadow-xl hover:-translate-y-0.5 flex flex-col h-full">
-                  <div className="rounded-t-2xl bg-gradient-to-br from-primary to-secondary/20 relative overflow-hidden flex items-center justify-center" style={{ height:"clamp(90px,15vw,140px)" }}>
-                    <Droplets className="absolute -right-2 -bottom-1 text-white/10" style={{ width:"clamp(2.5rem,8vw,4rem)", height:"clamp(2.5rem,8vw,4rem)" }} />
-                    <div className="rounded-xl bg-white/10 border border-white/15 flex items-center justify-center relative z-10" style={{ width:"clamp(2.2rem,6vw,3rem)", height:"clamp(2.2rem,6vw,3rem)" }}>
-                      <Car className="text-secondary" style={{ width:"clamp(1rem,3vw,1.5rem)", height:"clamp(1rem,3vw,1.5rem)" }} />
-                    </div>
-                  </div>
-                  <div className="flex flex-col flex-1" style={{ padding:"clamp(0.75rem,2.5vw,1.25rem)" }}>
-                    <h3 className="font-bold mb-1.5 leading-tight" style={{ fontSize:"clamp(0.8rem,2vw,1rem)" }}>{svc.name}</h3>
-                    <p className="text-muted-foreground mb-3 flex-1" style={{ fontSize:"clamp(0.7rem,1.5vw,0.83rem)" }}>{svc.description}</p>
-                    <div className="grid grid-cols-4 gap-1 mb-3">
-                      {[["Small",svc.price_small],["Large",svc.price_large],["XL",svc.price_xl],["Truck",svc.price_truck]].map(([l,v]) => (
-                        <div key={l as string} className="bg-muted/60 rounded-lg py-1 text-center">
-                          <p className="text-muted-foreground font-medium" style={{ fontSize:"clamp(7px,1.2vw,9px)" }}>{l}</p>
-                          <p className="font-bold" style={{ fontSize:"clamp(0.6rem,1.3vw,0.75rem)" }}>N${v}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <Link to="/book" className="block text-center bg-secondary/10 hover:bg-secondary/20 text-secondary py-2 rounded-xl font-bold transition" style={{ fontSize:"clamp(0.7rem,1.5vw,0.82rem)" }}>
-                      Book This
-                    </Link>
-                  </div>
-                </div>
+
+          {/* Desktop: 3-col grid; Mobile: auto-slide carousel */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+            {displaySvc.map((svc:any, i:number) => (
+              <Reveal key={svc.id} delay={i*0.1}>
+                <ServiceCard svc={svc} />
               </Reveal>
             ))}
           </div>
+          <div className="sm:hidden mb-4">
+            <AutoCarousel items={displaySvc} interval={4500} renderItem={(svc:any) => <ServiceCard svc={svc} />} />
+          </div>
+
           {addons.length > 0 && (
-            <Reveal delay={0.2} className="mt-4">
+            <Reveal delay={0.2}>
               <div className="bg-muted/30 rounded-2xl border border-border p-4">
                 <p className="font-bold text-muted-foreground uppercase tracking-widest mb-2.5" style={{ fontSize:"clamp(8px,1.2vw,10px)" }}>Add-ons Available</p>
                 <div className="flex flex-wrap gap-2">
-                  {addons.map((a: any) => (
+                  {addons.map((a:any) => (
                     <div key={a.id} className="flex items-center gap-1.5 bg-card px-3 py-1.5 rounded-xl border border-border">
                       <Sparkles className="w-3 h-3 text-secondary flex-shrink-0" />
                       <span className="font-semibold" style={{ fontSize:"clamp(0.68rem,1.4vw,0.8rem)" }}>{a.name}</span>
@@ -414,15 +439,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── WHY OASIS — 2×2 on mobile ───────────────────────────────────── */}
+      {/* ──── WHY OASIS ───────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-24 bg-primary relative overflow-hidden">
         <div className="absolute top-0 right-0 rounded-full bg-secondary/10 blur-3xl" style={{ width:"min(24rem,60vw)", height:"min(24rem,60vw)" }} />
         <div className="absolute bottom-0 left-0 rounded-full bg-sky-500/10 blur-3xl" style={{ width:"min(16rem,40vw)", height:"min(16rem,40vw)" }} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
           <SH light badge="Our Advantage" title={fe("title")} sub={fe("subtitle")} />
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {(fe("items") || DEFAULTS.features.items).map((item: any, i: number) => (
-              <Reveal key={i} delay={i * 0.09}>
+            {(fe("items") || D.features.items).map((item:any, i:number) => (
+              <Reveal key={i} delay={i*0.09}>
                 <div className="bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl hover:bg-white/10 transition" style={{ padding:"clamp(0.75rem,2.5vw,1.5rem)" }}>
                   <div className="rounded-lg sm:rounded-xl bg-secondary/15 text-secondary flex items-center justify-center mb-2.5 sm:mb-4" style={{ width:"clamp(2rem,5vw,2.75rem)", height:"clamp(2rem,5vw,2.75rem)" }}>
                     {ICON[item.icon] || <Sparkles />}
@@ -436,52 +461,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING — horizontal scroll on mobile ─────────────────────────── */}
+      {/* ──── PRICING — auto-slide carousel ───────────────────────────────── */}
       <section id="pricing" className="py-14 sm:py-24 bg-background">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Subscription Plans" title={ps("title")} sub={ps("subtitle")} />
-          <div className="flex gap-4 overflow-x-auto pb-3 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 snap-x snap-mandatory sm:snap-none -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-none">
-            {(plans.length > 0 ? plans : [
-              { plan_name:"Basic",    monthly_price:250, allowed_bookings_per_month:2,  description:"2 standard washes/month" },
-              { plan_name:"Standard", monthly_price:450, allowed_bookings_per_month:4,  description:"4 standard washes/month" },
-              { plan_name:"Premium",  monthly_price:650, allowed_bookings_per_month:4,  description:"4 washes + 1 full detail" },
-              { plan_name:"Corporate",monthly_price:0,   allowed_bookings_per_month:99, description:"Fleet pricing — contact us" },
-            ]).map((plan: any, i: number) => {
-              const pop = i === 1;
-              return (
-                <Reveal key={i} delay={i*0.08}
-                  className="flex-shrink-0 snap-start sm:snap-align-none" style={{ minWidth:"min(65vw,200px)" }}>
-                  <div className={`relative rounded-2xl border flex flex-col h-full ${pop ? "bg-secondary text-secondary-foreground border-secondary shadow-2xl shadow-secondary/25 scale-[1.02] sm:scale-[1.04]" : "bg-card border-border"}`}
-                    style={{ padding:"clamp(0.9rem,2.5vw,1.6rem)" }}>
-                    {pop && (
-                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap" style={{ fontSize:"clamp(8px,1.3vw,10px)" }}>
-                        <Crown className="w-2.5 h-2.5" /> Most Popular
-                      </div>
-                    )}
-                    <h3 className="font-black mb-1" style={{ fontSize:"clamp(0.95rem,2.2vw,1.25rem)" }}>{plan.plan_name}</h3>
-                    <p className={`mb-3 leading-relaxed ${pop ? "text-secondary-foreground/75" : "text-muted-foreground"}`} style={{ fontSize:"clamp(0.67rem,1.3vw,0.78rem)" }}>{plan.description}</p>
-                    <div className="mb-4 flex items-baseline gap-1">
-                      {plan.monthly_price > 0
-                        ? <><span className="font-black" style={{ fontSize:"clamp(1.4rem,4.5vw,2.2rem)" }}>N${plan.monthly_price}</span><span className={`font-medium ${pop?"text-secondary-foreground/60":"text-muted-foreground"}`} style={{ fontSize:"clamp(0.65rem,1.1vw,0.75rem)" }}>/mo</span></>
-                        : <span className="font-black" style={{ fontSize:"clamp(1rem,3vw,1.4rem)" }}>Custom</span>}
-                    </div>
-                    <div className="flex-1 space-y-1.5 mb-4">
-                      {[plan.allowed_bookings_per_month < 50 ? `${plan.allowed_bookings_per_month} washes/month` : "Unlimited washes", "Priority booking","Loyalty points"].map((f,j) => (
-                        <div key={j} className="flex items-center gap-1.5">
-                          <Check className={`w-3 h-3 flex-shrink-0 ${pop?"text-secondary-foreground":"text-secondary"}`} />
-                          <span style={{ fontSize:"clamp(0.67rem,1.3vw,0.78rem)" }}>{f}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <Link to="/dashboard" className={`block text-center py-2 rounded-xl font-bold transition ${pop?"bg-primary text-primary-foreground hover:opacity-90":"bg-secondary/10 text-secondary hover:bg-secondary/20"}`}
-                      style={{ fontSize:"clamp(0.7rem,1.4vw,0.82rem)" }}>
-                      Get Started
-                    </Link>
-                  </div>
-                </Reveal>
-              );
-            })}
+
+          {/* Desktop: grid; Mobile: auto-slide */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {displayPlans.map((plan:any, i:number) => (
+              <Reveal key={i} delay={i*0.08}><PlanCard plan={plan} isPopular={i===1} /></Reveal>
+            ))}
           </div>
+          <div className="sm:hidden">
+            <AutoCarousel items={displayPlans} interval={5000} renderItem={(plan:any, i:number) => <PlanCard plan={plan} isPopular={i===1} />} />
+          </div>
+
           <Reveal delay={0.3}>
             <p className="text-center text-muted-foreground mt-4" style={{ fontSize:"clamp(0.7rem,1.4vw,0.82rem)" }}>
               {ps("note")}{" "}<Link to="/auth" className="text-secondary font-semibold hover:underline">Sign up free</Link>
@@ -490,35 +484,26 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── REVIEWS — horizontal scroll on mobile ─────────────────────────── */}
+      {/* ──── REVIEWS — auto-slide carousel ───────────────────────────────── */}
       {reviews.length > 0 && (
         <section className="py-14 sm:py-24 bg-muted/25">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <SH badge="Reviews" title={rs("title")} sub={rs("subtitle")} />
-            <div className="flex gap-4 overflow-x-auto pb-3 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 snap-x snap-mandatory sm:snap-none -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-none">
-              {reviews.map((rev, i) => (
-                <Reveal key={i} delay={i*0.09}
-                  className="flex-shrink-0 snap-start sm:snap-align-none" style={{ minWidth:"min(75vw,280px)" }}>
-                  <div className="bg-card rounded-2xl border border-border h-full" style={{ padding:"clamp(0.9rem,2.5vw,1.5rem)" }}>
-                    <Quote className="text-secondary/20 mb-2" style={{ width:"clamp(1.5rem,4vw,2rem)", height:"clamp(1.5rem,4vw,2rem)" }} />
-                    <div className="flex gap-0.5 mb-2.5">
-                      {Array.from({length:5}).map((_,j) => (
-                        <Star key={j} className={`${j<rev.star_rating?"fill-secondary text-secondary":"text-border"}`} style={{ width:"clamp(10px,2vw,14px)", height:"clamp(10px,2vw,14px)" }} />
-                      ))}
-                    </div>
-                    <p className="text-muted-foreground leading-relaxed mb-2" style={{ fontSize:"clamp(0.72rem,1.5vw,0.875rem)" }}>
-                      {rev.review_comment || "Great service! Very professional and thorough."}
-                    </p>
-                    <p className="text-muted-foreground/50 font-medium" style={{ fontSize:"clamp(0.62rem,1.1vw,0.72rem)" }}>Verified Oasis Customer</p>
-                  </div>
-                </Reveal>
+
+            {/* Desktop: grid; Mobile: auto-slide */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {reviews.slice(0,6).map((rev:any, i:number) => (
+                <Reveal key={i} delay={i*0.09}><ReviewCard rev={rev} /></Reveal>
               ))}
+            </div>
+            <div className="sm:hidden">
+              <AutoCarousel items={reviews} interval={4000} renderItem={(rev:any) => <ReviewCard rev={rev} />} />
             </div>
           </div>
         </section>
       )}
 
-      {/* ── ABOUT ─────────────────────────────────────────────────────────── */}
+      {/* ──── ABOUT ───────────────────────────────────────────────────────── */}
       <section id="about" className="py-14 sm:py-24 bg-background">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-14 items-center">
@@ -542,7 +527,7 @@ export default function LandingPage() {
               </Reveal>
               <Reveal delay={0.3}>
                 <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                  {(ab("values") || DEFAULTS.about.values).map((v: string, i: number) => (
+                  {(ab("values") || D.about.values).map((v: string, i: number) => (
                     <div key={i} className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
                         <Check className="w-2.5 h-2.5 text-secondary" />
@@ -556,15 +541,11 @@ export default function LandingPage() {
             <Reveal delay={0.2}>
               <div className="relative">
                 <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary via-primary to-secondary/20 overflow-hidden shadow-2xl" style={{ aspectRatio:"4/3" }}>
-                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage:"radial-gradient(circle at 30% 40%, #FF8C00,transparent 50%),radial-gradient(circle at 70% 70%, rgba(0,120,200,.8),transparent 50%)" }} />
+                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage:"radial-gradient(circle at 30% 40%,#FF8C00,transparent 50%),radial-gradient(circle at 70% 70%,rgba(0,120,200,.8),transparent 50%)" }} />
                   <div className="relative z-10 h-full flex flex-col items-center justify-center" style={{ padding:"clamp(1rem,4vw,2rem)" }}>
                     <img src={logoBrand} alt="Oasis" className="w-auto drop-shadow-2xl mb-4 sm:mb-6" style={{ height:"clamp(2.5rem,7vw,4.5rem)" }} />
                     <div className="grid grid-cols-3 gap-2 sm:gap-5 w-full">
-                      {[
-                        { val:ab("founded_year")||"2020", label:"Founded" },
-                        { val:ab("vehicles_washed")||"2,500+", label:"Washed" },
-                        { val:ab("happy_customers")||"800+", label:"Clients" },
-                      ].map(s => (
+                      {[{ val:ab("founded_year")||"2020",label:"Founded" },{ val:ab("vehicles_washed")||"2,500+",label:"Washed" },{ val:ab("happy_customers")||"800+",label:"Clients" }].map(s => (
                         <div key={s.label} className="text-center">
                           <p className="text-white font-black" style={{ fontSize:"clamp(1rem,3.5vw,2rem)" }}>{s.val}</p>
                           <p className="text-white/45 uppercase tracking-wider" style={{ fontSize:"clamp(6px,1.1vw,9px)" }}>{s.label}</p>
@@ -573,11 +554,11 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-                <motion.div animate={{ y:[-4,4,-4] }} transition={{ duration:3, repeat:Infinity }}
+                <motion.div animate={{ y:[-4,4,-4] }} transition={{ duration:3,repeat:Infinity }}
                   className="absolute -top-3 -right-3 sm:-top-4 sm:-right-4 bg-secondary text-secondary-foreground font-bold px-2.5 sm:px-3 py-1.5 rounded-full shadow-xl" style={{ fontSize:"clamp(8px,1.3vw,11px)" }}>
                   <Award className="w-3 h-3 inline mr-0.5" />Windhoek's Best
                 </motion.div>
-                <motion.div animate={{ y:[4,-4,4] }} transition={{ duration:4, repeat:Infinity }}
+                <motion.div animate={{ y:[4,-4,4] }} transition={{ duration:4,repeat:Infinity }}
                   className="absolute -bottom-3 -left-3 sm:-bottom-4 sm:-left-4 bg-card border border-border font-bold px-2.5 sm:px-3 py-1.5 rounded-full shadow-xl" style={{ fontSize:"clamp(8px,1.3vw,11px)" }}>
                   <Zap className="w-3 h-3 inline mr-0.5 text-secondary" />Book in 2 min
                 </motion.div>
@@ -587,7 +568,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CONTACT ───────────────────────────────────────────────────────── */}
+      {/* ──── CONTACT ─────────────────────────────────────────────────────── */}
       <section id="contact" className="py-14 sm:py-24 bg-muted/25 relative">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -650,7 +631,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA BAND ──────────────────────────────────────────────────────── */}
+      {/* ──── CTA BAND ────────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-20 bg-secondary relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage:"radial-gradient(circle at 20% 50%,white,transparent 55%),radial-gradient(circle at 80% 50%,white,transparent 55%)" }} />
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center relative z-10">
@@ -675,7 +656,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
+      {/* ──── FOOTER ──────────────────────────────────────────────────────── */}
       <footer className="bg-primary text-primary-foreground">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-8 mb-7 sm:mb-9">
@@ -710,22 +691,100 @@ export default function LandingPage() {
               <h4 className="font-bold uppercase tracking-widest mb-3 text-primary-foreground/40" style={{ fontSize:"clamp(7px,1.1vw,9px)" }}>Contact</h4>
               <ul className="space-y-1.5 text-primary-foreground/60" style={{ fontSize:"clamp(0.68rem,1.3vw,0.78rem)" }}>
                 <li className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-secondary flex-shrink-0" /><span className="truncate">{co("phone")||"+264 81 278 1123"}</span></li>
-                <li className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-secondary flex-shrink-0" /><span className="truncate">{co("email")||"info@..."}</span></li>
-                <li className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-secondary flex-shrink-0" />{co("address")||"Windhoek"}</li>
+                <li className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-secondary flex-shrink-0" /><span className="truncate">{co("email")||"info@oasispurecleaning.com"}</span></li>
+                <li className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-secondary flex-shrink-0" />{co("address")||"Windhoek, Namibia"}</li>
               </ul>
             </div>
           </div>
           <div className="border-t border-white/10 pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-primary-foreground/30" style={{ fontSize:"clamp(0.62rem,1.1vw,0.72rem)" }}>
             <p>© {new Date().getFullYear()} {ft("copyright")}</p>
-            <div className="flex items-center gap-3">
-              <span>Windhoek, Namibia</span><span>·</span>
-              <Link to="/book" className="hover:text-secondary transition">Book Now</Link>
-            </div>
+            <div className="flex items-center gap-3"><span>Windhoek, Namibia</span><span>·</span><Link to="/book" className="hover:text-secondary transition">Book Now</Link></div>
           </div>
         </div>
       </footer>
 
       <WinnyChatbot />
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function ServiceCard({ svc }: { svc: any }) {
+  return (
+    <div className="bg-card rounded-2xl border border-border hover:border-secondary/50 transition-all hover:shadow-xl hover:-translate-y-0.5 flex flex-col h-full">
+      <div className="rounded-t-2xl bg-gradient-to-br from-primary to-secondary/20 relative overflow-hidden flex items-center justify-center" style={{ height:"clamp(90px,15vw,140px)" }}>
+        <Droplets className="absolute -right-2 -bottom-1 text-white/10" style={{ width:"clamp(2.5rem,8vw,4rem)", height:"clamp(2.5rem,8vw,4rem)" }} />
+        <div className="rounded-xl bg-white/10 border border-white/15 flex items-center justify-center relative z-10" style={{ width:"clamp(2.2rem,6vw,3rem)", height:"clamp(2.2rem,6vw,3rem)" }}>
+          <Car className="text-secondary" style={{ width:"clamp(1rem,3vw,1.5rem)", height:"clamp(1rem,3vw,1.5rem)" }} />
+        </div>
+      </div>
+      <div className="flex flex-col flex-1" style={{ padding:"clamp(0.75rem,2.5vw,1.25rem)" }}>
+        <h3 className="font-bold mb-1.5 leading-tight" style={{ fontSize:"clamp(0.8rem,2vw,1rem)" }}>{svc.name}</h3>
+        <p className="text-muted-foreground mb-3 flex-1" style={{ fontSize:"clamp(0.7rem,1.5vw,0.83rem)" }}>{svc.description}</p>
+        <div className="grid grid-cols-4 gap-1 mb-3">
+          {[["Small",svc.price_small],["Large",svc.price_large],["XL",svc.price_xl],["Truck",svc.price_truck]].map(([l,v]) => (
+            <div key={l as string} className="bg-muted/60 rounded-lg py-1 text-center">
+              <p className="text-muted-foreground font-medium" style={{ fontSize:"clamp(7px,1.2vw,9px)" }}>{l}</p>
+              <p className="font-bold" style={{ fontSize:"clamp(0.6rem,1.3vw,0.75rem)" }}>N${v}</p>
+            </div>
+          ))}
+        </div>
+        <Link to="/book" className="block text-center bg-secondary/10 hover:bg-secondary/20 text-secondary py-2 rounded-xl font-bold transition" style={{ fontSize:"clamp(0.7rem,1.5vw,0.82rem)" }}>
+          Book This
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function PlanCard({ plan, isPopular }: { plan: any; isPopular: boolean }) {
+  return (
+    <div className={`relative rounded-2xl border flex flex-col h-full ${isPopular ? "bg-secondary text-secondary-foreground border-secondary shadow-2xl shadow-secondary/25" : "bg-card border-border"}`}
+      style={{ padding:"clamp(0.9rem,2.5vw,1.6rem)" }}>
+      {isPopular && (
+        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap" style={{ fontSize:"clamp(8px,1.3vw,10px)" }}>
+          <Crown className="w-2.5 h-2.5" /> Most Popular
+        </div>
+      )}
+      <h3 className="font-black mb-1" style={{ fontSize:"clamp(0.95rem,2.2vw,1.25rem)" }}>{plan.plan_name}</h3>
+      <p className={`mb-3 leading-relaxed ${isPopular ? "text-secondary-foreground/75" : "text-muted-foreground"}`} style={{ fontSize:"clamp(0.67rem,1.3vw,0.78rem)" }}>{plan.description}</p>
+      <div className="mb-4 flex items-baseline gap-1">
+        {plan.monthly_price > 0
+          ? <><span className="font-black" style={{ fontSize:"clamp(1.4rem,4.5vw,2.2rem)" }}>N${plan.monthly_price}</span><span className={`font-medium ${isPopular?"text-secondary-foreground/60":"text-muted-foreground"}`} style={{ fontSize:"clamp(0.65rem,1.1vw,0.75rem)" }}>/mo</span></>
+          : <span className="font-black" style={{ fontSize:"clamp(1rem,3vw,1.4rem)" }}>Custom</span>}
+      </div>
+      <div className="flex-1 space-y-1.5 mb-4">
+        {[plan.allowed_bookings_per_month < 50 ? `${plan.allowed_bookings_per_month} washes/month` : "Unlimited washes","Priority booking","Loyalty points"].map((f,j) => (
+          <div key={j} className="flex items-center gap-1.5">
+            <Check className={`w-3 h-3 flex-shrink-0 ${isPopular?"text-secondary-foreground":"text-secondary"}`} />
+            <span style={{ fontSize:"clamp(0.67rem,1.3vw,0.78rem)" }}>{f}</span>
+          </div>
+        ))}
+      </div>
+      <Link to="/dashboard" className={`block text-center py-2 rounded-xl font-bold transition ${isPopular?"bg-primary text-primary-foreground hover:opacity-90":"bg-secondary/10 text-secondary hover:bg-secondary/20"}`}
+        style={{ fontSize:"clamp(0.7rem,1.4vw,0.82rem)" }}>
+        Get Started
+      </Link>
+    </div>
+  );
+}
+
+function ReviewCard({ rev }: { rev: any }) {
+  return (
+    <div className="bg-card rounded-2xl border border-border h-full" style={{ padding:"clamp(0.9rem,2.5vw,1.5rem)" }}>
+      <Quote className="text-secondary/20 mb-2" style={{ width:"clamp(1.5rem,4vw,2rem)", height:"clamp(1.5rem,4vw,2rem)" }} />
+      <div className="flex gap-0.5 mb-2.5">
+        {Array.from({length:5}).map((_,j) => (
+          <Star key={j} className={`${j<rev.star_rating?"fill-secondary text-secondary":"text-border"}`} style={{ width:"clamp(10px,2vw,14px)", height:"clamp(10px,2vw,14px)" }} />
+        ))}
+      </div>
+      <p className="text-muted-foreground leading-relaxed mb-2" style={{ fontSize:"clamp(0.72rem,1.5vw,0.875rem)" }}>
+        {rev.review_comment || "Great service! Very professional and thorough."}
+      </p>
+      <p className="text-muted-foreground/50 font-medium" style={{ fontSize:"clamp(0.62rem,1.1vw,0.72rem)" }}>
+        {rev.customer_name ? rev.customer_name : "Verified Oasis Customer"}
+      </p>
     </div>
   );
 }

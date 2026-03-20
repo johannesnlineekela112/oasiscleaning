@@ -10,13 +10,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart2, ClipboardList, History, CreditCard, Zap, Award,
   Users, Settings, ReceiptText, BookOpen, Megaphone, ShieldCheck,
-  FileText, X, Calendar, Clock, DollarSign, CheckCircle, LayoutDashboard, Globe,
+  FileText, X, Calendar, Clock, DollarSign, CheckCircle, LayoutDashboard, Globe, Star,
 } from "lucide-react";
 
 type Tab =
   | "overview" | "analytics" | "bookings" | "history" | "payments"
   | "subscriptions" | "loyalty" | "employees" | "settings"
-  | "payouts" | "about" | "ads" | "security" | "audit" | "website";
+  | "payouts" | "about" | "ads" | "security" | "audit" | "website" | "reviews_mgmt";
 
 interface SidebarStats {
   total:     number;
@@ -51,6 +51,7 @@ const NAV_ITEMS: { key: Tab; label: string; icon: any; group?: string }[] = [
   { key: "settings",      label: "Settings",       icon: Settings,      group: "Platform" },
   { key: "ads",           label: "Marketing",      icon: Megaphone,     group: "Platform" },
   { key: "website",       label: "Website",        icon: Globe,         group: "Platform" },
+  { key: "reviews_mgmt",  label: "Reviews",        icon: Star,          group: "Platform" },
   { key: "about",         label: "About & Legal",  icon: BookOpen,      group: "Platform" },
   // ── System
   { key: "security",      label: "Security",       icon: ShieldCheck,   group: "System" },

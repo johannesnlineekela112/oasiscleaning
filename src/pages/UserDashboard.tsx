@@ -911,19 +911,19 @@ const UserDashboard = () => {
 
       {/* Tab bar */}
       <div className="sticky top-[52px] z-40 bg-card border-b border-border shadow-sm">
-        <div className="max-w-3xl mx-auto px-2 sm:px-4 flex gap-0 overflow-x-auto scrollbar-none [-webkit-overflow-scrolling:touch]">
+        <div className="max-w-3xl mx-auto px-2 sm:px-4 flex gap-0 overflow-x-auto scrollbar-none [-webkit-overflow-scrolling:touch] justify-center sm:justify-start">
           {([
             { key: "bookings", label: "My Bookings", icon: Calendar },
             { key: "loyalty",  label: "Loyalty",     icon: Award },
             { key: "profile",  label: "Profile",     icon: User },
           ] as { key: DashTab; label: string; icon: any }[]).map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-2 px-5 py-3.5 text-sm font-bold transition border-b-2 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-3 sm:py-3.5 text-xs sm:text-sm font-bold transition border-b-2 whitespace-nowrap flex-1 sm:flex-none justify-center ${
                 activeTab === t.key
                   ? "border-secondary text-secondary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
-              <t.icon className="w-4 h-4" /> {t.label}
+              <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t.label}
             </button>
           ))}
         </div>

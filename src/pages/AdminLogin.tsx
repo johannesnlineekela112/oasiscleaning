@@ -125,7 +125,9 @@ const AdminLogin = () => {
     recordAdminLoginTime();
     await auditAuthEvent(uid, "auth.admin_login",
       undefined, { ...getClientMeta(), actorEmail: email });
-    navigate("/admin/dashboard");
+    // Route super_admin to the platform dashboard, admin to admin dashboard
+    const profile = await getUserProfile(uid).catch(() => null);
+    navigate(profile?.role === "super_admin" ? "/platform" : "/admin/dashboard");
   };
 
   // ── Cancel MFA → back to credentials (sign out first) ────────────────────

@@ -62,6 +62,7 @@ import AdminAds from "@/pages/AdminAds";
 import AdminPaymentVerification from "@/components/AdminPaymentVerification";
 import AdminSubscriptions from "@/components/AdminSubscriptions";
 import { WebsiteManager } from "@/components/WebsiteManager";
+import { ReviewManagementTab } from "@/components/ReviewManagementTab";
 import { useToastQueue, NotificationToastStack } from "@/components/NotificationToast";
 import logo from "@/assets/logo-brand.png";
 import AdminSidebar from "@/components/AdminSidebar";
@@ -3394,6 +3395,23 @@ Expand the booking and upload photos using the camera section, then try again.`)
           </motion.div>
         )}
       </AnimatePresence>
+
+
+      {/* ══════════════════ REVIEW MANAGEMENT TAB ══════════════════ */}
+      {tab === "reviews_mgmt" && (
+        <ReviewManagementTab />
+      )}
+
+      {/* ══════════════════ WEBSITE TAB ════════════════════════════ */}
+      {tab === "website" && (
+        <div className="space-y-5">
+          <div className="pb-4 border-b border-border">
+            <h2 className="font-display font-bold text-xl">Website Content</h2>
+            <p className="text-sm text-muted-foreground mt-1">Edit all public-facing website content — changes go live immediately.</p>
+          </div>
+          <WebsiteManager />
+        </div>
+      )}
 
       <CopyrightFooter />
     </div>
