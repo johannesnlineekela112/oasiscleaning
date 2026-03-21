@@ -326,15 +326,19 @@ const AuthPage = () => {
                 required
                 className="w-full pl-10 pr-10 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
               />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShowPassword(p => !p)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              {password.length > 0 && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(p => !p)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-secondary/80 transition p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {showPassword
+                    ? <EyeOff className="w-4 h-4" />
+                    : <Eye className="w-4 h-4 text-secondary" />}
+                </button>
+              )}
             </div>
           </div>
 

@@ -19,7 +19,7 @@
 import { useState } from "react";
 import { CopyrightFooter } from "@/components/CopyrightFooter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Mail, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { Lock, Mail, ArrowLeft, Loader2, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { loginUser, getUserProfile, logout } from "@/lib/authService";
 import { guardAction, recordFailure } from "@/lib/botProtection";
 import { getAAL } from "@/lib/mfaService";
@@ -36,6 +36,7 @@ const AdminLogin = () => {
   const [step,     setStep]     = useState<Step>("credentials");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
   const [honeypot, setHoneypot] = useState("");
@@ -200,13 +201,26 @@ const AdminLogin = () => {
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           value={password}
                           onChange={e => setPassword(e.target.value)}
                           required autoComplete="current-password"
-                          className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
+                          className="w-full pl-10 pr-10 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
                         />
+                        {password.length > 0 && (
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            onClick={() => setShowPassword(p => !p)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-secondary/80 transition p-0.5 rounded focus:outline-none"
+                          >
+                            {showPassword
+                              ? <EyeOff className="w-4 h-4" />
+                              : <Eye className="w-4 h-4" />}
+                          </button>
+                        )}
                       </div>
                     </div>
 

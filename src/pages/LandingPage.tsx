@@ -13,6 +13,8 @@ import {
   Star, CheckCircle2, ArrowRight, Truck, Car, ShieldCheck, Clock, Award,
   Instagram, Facebook, Menu, X, Zap, Crown, Leaf, Quote, Users, Lock,
   CalendarCheck, Wrench, TrendingUp, Building2, Wallet,
+  Sparkles, BadgeCheck, Timer, Recycle, Navigation, PackageCheck,
+  HeartHandshake, ThumbsUp,
 } from "lucide-react";
 import { getAllWebsiteContent } from "@/lib/websiteService";
 import { supabase } from "@/lib/supabase";
@@ -135,6 +137,7 @@ function StableCarousel({ items, renderItem, interval = 4200, minHeight }: {
 }) {
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(1);
+  const [paused, setPaused] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const advance = useCallback((d: number) => {
@@ -149,12 +152,19 @@ function StableCarousel({ items, renderItem, interval = 4200, minHeight }: {
   }, [advance, interval]);
 
   useEffect(() => {
+    if (paused) { if (timer.current) clearInterval(timer.current); return; }
     timer.current = setInterval(() => advance(1), interval);
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, [advance, interval]);
+  }, [advance, interval, paused]);
 
   return (
-    <div className="relative rounded-2xl" style={{ minHeight }}>
+    <div className="relative rounded-2xl" style={{ minHeight }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => { setPaused(false); }}
+      onPointerDown={() => setPaused(true)}
+      onPointerUp={() => setPaused(false)}>
       {/* Container with fixed height so exits don't collapse/expand it */}
       <div className="relative overflow-hidden rounded-2xl" style={{ minHeight }}>
         <AnimatePresence initial={false} custom={dir} mode="popLayout">
@@ -190,15 +200,36 @@ function StableCarousel({ items, renderItem, interval = 4200, minHeight }: {
   );
 }
 
+// ─── Subtle car background pattern ────────────────────────────────────────────
+function CarPattern({ opacity = 0.04 }: { opacity?: number }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ opacity }}>
+        <defs>
+          <pattern id="car-tile" x="0" y="0" width="120" height="80" patternUnits="userSpaceOnUse">
+            <path d="M22 54 L22 47 L30 40 L46 38 L56 40 L64 47 L64 54 Z" fill="currentColor" fillOpacity="1" />
+            <circle cx="29" cy="55" r="5.5" fill="currentColor" />
+            <circle cx="57" cy="55" r="5.5" fill="currentColor" />
+            <rect x="32" y="40" width="22" height="7" rx="2" fill="currentColor" fillOpacity="0.4" />
+            <line x1="15" y1="50" x2="22" y2="50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="64" y1="50" x2="71" y2="50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#car-tile)" />
+      </svg>
+    </div>
+  );
+}
+
 // ─── Professional icon map ────────────────────────────────────────────────────
 const ICON: Record<string, React.ReactNode> = {
-  "map-pin":  <MapPin    className="w-5 h-5 sm:w-6 sm:h-6" />,
-  "truck":    <Truck     className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "map-pin":  <Navigation className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "truck":    <PackageCheck className="w-5 h-5 sm:w-6 sm:h-6" />,
   "calendar": <CalendarCheck className="w-5 h-5 sm:w-6 sm:h-6" />,
-  "star":     <Star      className="w-5 h-5 sm:w-6 sm:h-6" />,
-  "shield":   <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />,
-  "leaf":     <Leaf      className="w-5 h-5 sm:w-6 sm:h-6" />,
-  "clock":    <Clock     className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "star":     <ThumbsUp  className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "shield":   <BadgeCheck className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "leaf":     <Recycle   className="w-5 h-5 sm:w-6 sm:h-6" />,
+  "clock":    <Timer     className="w-5 h-5 sm:w-6 sm:h-6" />,
   "wrench":   <Wrench    className="w-5 h-5 sm:w-6 sm:h-6" />,
 };
 
@@ -216,6 +247,7 @@ export default function LandingPage() {
   const [navOpen,  setNavOpen]  = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [userLink, setUserLink] = useState("/auth");
+  const [promos, setPromos] = useState<any[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -223,11 +255,13 @@ export default function LandingPage() {
       import("@/lib/bookingService").then(m => m.getAllServices()),
       supabase.from("subscription_plans").select("plan_name,monthly_price,allowed_bookings_per_month,description").eq("status", "active").order("sort_order"),
       supabase.from("reviews").select("star_rating,review_comment,created_at,customer_name").eq("review_status", "published").order("created_at", { ascending: false }).limit(12),
-    ]).then(([wc, svcs, plansR, revR]) => {
+      supabase.from("marketing_ads").select("id,title,message,button_text,button_link,image_url").eq("active", true).order("priority").limit(5),
+    ]).then(([wc, svcs, plansR, revR, promosR]) => {
       setCms({ ...D, ...wc });
       setServices((svcs as any[]).filter(s => s.is_active));
       setPlans(plansR.data ?? []);
       setReviews(revR.data ?? []);
+      setPromos(promosR.data ?? []);
     }).catch(() => {});
 
     getSessionUser().then(async u => {
@@ -356,19 +390,49 @@ export default function LandingPage() {
 
       {/* ──── MOBILE SECTION TABS — sticky pill bar below hero ────────────── */}
       {/* Visible on small screens only, allows quick jumping to sections */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-2xl">
-        <div className="flex overflow-x-auto scrollbar-none px-2 py-1.5 gap-1">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-2xl safe-bottom">
+        <div className="grid grid-cols-6 px-1 py-1">
           {NAV.map(n => (
             <button key={n.label} onClick={() => scrollTo(n.href)}
-              className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground hover:text-secondary hover:bg-secondary/10 px-3 py-1.5 rounded-lg transition whitespace-nowrap">
-              {n.label}
+              className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition">
+              <span className="font-bold uppercase" style={{ fontSize: "clamp(7px,2vw,9px)", letterSpacing: "0.05em", lineHeight: 1.2 }}>{n.label}</span>
             </button>
           ))}
-          <Link to="/book" className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wide bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg whitespace-nowrap ml-auto">
-            Book
+          <Link to="/book"
+            className="flex flex-col items-center justify-center py-1.5 px-0.5 rounded-lg bg-secondary/15 text-secondary">
+            <span className="font-black uppercase" style={{ fontSize: "clamp(7px,2vw,9px)", letterSpacing: "0.05em" }}>Book</span>
           </Link>
         </div>
       </div>
+
+
+      {/* ──── PROMOTIONS BANNER ──────────────────────────────────────── */}
+      {promos.length > 0 && (
+        <div className="fixed top-0 inset-x-0 z-[60]" style={{ marginTop: "clamp(56px,9vw,72px)" }}>
+          <div className="overflow-hidden" style={{ background: "linear-gradient(90deg,#0d2744,#FF8C00 60%,#0d2744)" }}>
+            <motion.div
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+              className="flex items-center gap-0 whitespace-nowrap py-2 px-0"
+              style={{ width: "200%" }}>
+              {[...promos, ...promos].map((p, i) => (
+                <span key={i} className="inline-flex items-center gap-3 px-8 text-white">
+                  <span className="w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                  <span className="font-bold text-xs sm:text-sm tracking-wide">{p.title}</span>
+                  <span className="text-white/70 text-xs sm:text-sm">{p.message}</span>
+                  {p.button_text && p.button_link && (
+                    <a href={p.button_link} target="_blank" rel="noreferrer"
+                      className="bg-secondary text-secondary-foreground px-2.5 py-0.5 rounded-full text-xs font-bold hover:opacity-90 transition flex-shrink-0"
+                      onClick={e => e.stopPropagation()}>
+                      {p.button_text} →
+                    </a>
+                  )}
+                </span>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       {/* ──── HERO ────────────────────────────────────────────────────────── */}
       <section ref={heroRef} className="relative min-h-[100svh] flex items-center overflow-hidden bg-primary pb-10 lg:pb-0">
@@ -382,7 +446,7 @@ export default function LandingPage() {
           backgroundSize: "clamp(30px,5vw,60px) clamp(30px,5vw,60px)"
         }} />
 
-        <motion.div style={{ opacity: heroOp, y: heroY }} className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-20 pb-16 sm:pt-24 text-center">
+        <motion.div style={{ opacity: heroOp, y: heroY }} className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-24 pb-16 sm:pt-28 text-center">
           {/* Badge */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .5 }}
             className="inline-flex items-center gap-2 bg-white/10 border border-white/15 text-primary-foreground/85 font-bold uppercase rounded-full mb-6"
@@ -442,7 +506,8 @@ export default function LandingPage() {
       </section>
 
       {/* ──── HOW IT WORKS ────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="py-14 sm:py-24 bg-muted/25 relative">
+      <section id="how-it-works" className="py-9 sm:py-24 bg-muted/25 relative">
+        <CarPattern opacity={0.03} />
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Simple Process" title="Done in 3 Easy Steps" sub="Getting your car professionally detailed has never been easier." />
@@ -475,7 +540,8 @@ export default function LandingPage() {
       </section>
 
       {/* ──── SERVICES — stable carousel on mobile ────────────────────────── */}
-      <section id="services" className="py-14 sm:py-24 bg-background">
+      <section id="services" className="py-9 sm:py-24 bg-background relative">
+        <CarPattern opacity={0.035} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="What We Do" title="Services for Every Vehicle" sub="Professional-grade cleaning for all vehicle sizes." />
 
@@ -524,7 +590,7 @@ export default function LandingPage() {
       </section>
 
       {/* ──── WHY OASIS ───────────────────────────────────────────────────── */}
-      <section className="py-14 sm:py-24 bg-primary relative overflow-hidden">
+      <section className="py-9 sm:py-24 bg-primary relative overflow-hidden">
         <div className="absolute top-0 right-0 rounded-full bg-secondary/10 blur-3xl" style={{ width: "min(24rem,60vw)", height: "min(24rem,60vw)" }} />
         <div className="absolute bottom-0 left-0 rounded-full bg-sky-500/10 blur-3xl" style={{ width: "min(16rem,40vw)", height: "min(16rem,40vw)" }} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
@@ -546,7 +612,8 @@ export default function LandingPage() {
       </section>
 
       {/* ──── PRICING — stable carousel on mobile ─────────────────────────── */}
-      <section id="pricing" className="py-14 sm:py-24 bg-background">
+      <section id="pricing" className="py-9 sm:py-24 bg-background relative">
+        <CarPattern opacity={0.035} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Subscription Plans" title={ps("title")} sub={ps("subtitle")} />
           <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -555,7 +622,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="sm:hidden">
-            <StableCarousel items={displayPlans} interval={5000} minHeight="320px"
+            <StableCarousel items={displayPlans} interval={5000} minHeight="380px"
               renderItem={(plan: any, i: number) => <PlanCard plan={plan} isPopular={i === 1} />} />
           </div>
           <Reveal delay={0.3}>
@@ -568,7 +635,7 @@ export default function LandingPage() {
 
       {/* ──── REVIEWS — stable carousel on mobile ─────────────────────────── */}
       {reviews.length > 0 && (
-        <section className="py-14 sm:py-24 bg-muted/25">
+        <section className="py-9 sm:py-24 bg-muted/25">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <SH badge="Reviews" title={rs("title")} sub={rs("subtitle")} />
             <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -584,8 +651,118 @@ export default function LandingPage() {
         </section>
       )}
 
+
+      {/* ──── LOYALTY PROGRAMME ──────────────────────────────────────── */}
+      <section className="py-9 sm:py-24 bg-primary relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none overflow-hidden">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs><pattern id="star-tile" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+              <polygon points="40,8 48,30 70,30 53,46 60,68 40,55 20,68 27,46 10,30 32,30" fill="white" opacity="1"/>
+            </pattern></defs>
+            <rect width="100%" height="100%" fill="url(#star-tile)"/>
+          </svg>
+        </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <SH light badge="Loyalty Rewards" title="Earn Points. Get Free Washes." sub="Every booking earns you points. Collect enough and your next wash is on us." />
+
+          {/* 3-step flow */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-8 relative">
+            <div className="hidden sm:block absolute top-8 left-[18%] right-[18%] h-px bg-gradient-to-r from-white/10 via-white/30 to-white/10" />
+            {[
+              { step: "1", icon: <Car className="w-5 h-5 sm:w-7 sm:h-7" />,   title: "Book a Wash",    body: "Every completed wash earns you 10 loyalty points automatically." },
+              { step: "2", icon: <Award className="w-5 h-5 sm:w-7 sm:h-7" />, title: "Collect Points",  body: "Reach 100 redeemable points. Refer a friend for bonus points too." },
+              { step: "3", icon: <Crown className="w-5 h-5 sm:w-7 sm:h-7" />, title: "Redeem Free Wash",body: "Use 100 points to unlock a completely free standard car wash." },
+            ].map((item, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="text-center">
+                  <div className="rounded-xl sm:rounded-2xl bg-white/10 border border-white/20 text-white flex items-center justify-center mx-auto mb-2 sm:mb-4 relative"
+                    style={{ width: "clamp(2.5rem,8vw,4.5rem)", height: "clamp(2.5rem,8vw,4.5rem)" }}>
+                    {item.icon}
+                    <span className="absolute -top-1.5 -right-1.5 rounded-full bg-secondary text-secondary-foreground font-black flex items-center justify-center border-2 border-primary"
+                      style={{ width: "clamp(1rem,3vw,1.4rem)", height: "clamp(1rem,3vw,1.4rem)", fontSize: "clamp(8px,1.5vw,10px)" }}>{item.step}</span>
+                  </div>
+                  <h3 className="font-bold text-white mb-1 leading-tight" style={{ fontSize: "clamp(0.7rem,2vw,1rem)" }}>{item.title}</h3>
+                  <p className="text-primary-foreground/60 leading-relaxed hidden sm:block" style={{ fontSize: "clamp(0.68rem,1.4vw,0.85rem)" }}>{item.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          {/* Mobile descriptions */}
+          <div className="sm:hidden mb-8 space-y-2">
+            {[
+              { step:"1", title:"Book a Wash",    body:"Every completed wash earns you 10 loyalty points." },
+              { step:"2", title:"Collect Points",  body:"Reach 100 redeemable points to unlock a free wash." },
+              { step:"3", title:"Redeem Free Wash",body:"Use 100 points for a completely free standard wash." },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
+                <span className="w-5 h-5 rounded-full bg-secondary text-secondary-foreground font-black flex items-center justify-center flex-shrink-0 text-[10px] mt-0.5">{item.step}</span>
+                <div>
+                  <p className="font-bold text-white text-sm">{item.title}</p>
+                  <p className="text-primary-foreground/55 text-xs mt-0.5 leading-relaxed">{item.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tier cards */}
+          <Reveal delay={0.2}>
+            <div className="bg-white/5 border border-white/10 rounded-2xl mb-6" style={{ padding: "clamp(1rem,3vw,1.5rem)" }}>
+              <p className="text-center text-primary-foreground/60 font-bold uppercase tracking-widest mb-4" style={{ fontSize: "clamp(8px,1.5vw,10px)" }}>Membership Tiers</p>
+              <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                {[
+                  { tier:"Bronze",  emoji:"🥉", pts:"0+",    grad:"from-amber-700/30 to-amber-800/10", desc:"Starter" },
+                  { tier:"Silver",  emoji:"🥈", pts:"500+",  grad:"from-slate-400/30  to-slate-500/10", desc:"Double pts" },
+                  { tier:"Gold",    emoji:"🥇", pts:"1500+", grad:"from-yellow-500/30  to-yellow-600/10",desc:"Priority" },
+                  { tier:"Platinum",emoji:"💎", pts:"3000+", grad:"from-violet-500/30  to-violet-600/10",desc:"VIP" },
+                ].map(t => (
+                  <div key={t.tier} className={"bg-gradient-to-br " + t.grad + " rounded-xl border border-white/10 text-center"} style={{ padding: "clamp(0.5rem,2vw,1rem)" }}>
+                    <span style={{ fontSize: "clamp(1rem,4vw,2rem)" }}>{t.emoji}</span>
+                    <p className="font-black text-white leading-tight mt-0.5" style={{ fontSize: "clamp(0.65rem,1.8vw,0.9rem)" }}>{t.tier}</p>
+                    <p className="text-secondary font-bold" style={{ fontSize: "clamp(0.6rem,1.3vw,0.75rem)" }}>{t.pts} pts</p>
+                    <p className="text-primary-foreground/50 hidden sm:block" style={{ fontSize: "clamp(0.58rem,1.1vw,0.68rem)" }}>{t.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Bonus info strip */}
+          <Reveal delay={0.25}>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+              {[
+                { val:"+10 pts", label:"per completed booking" },
+                { val:"100 pts", label:"= 1 free standard wash" },
+                { val:"+Bonus",  label:"for referring a friend" },
+              ].map((s, i) => (
+                <div key={i} className="bg-white/5 border border-white/10 rounded-xl text-center" style={{ padding: "clamp(0.5rem,2vw,0.9rem)" }}>
+                  <p className="text-secondary font-black" style={{ fontSize: "clamp(0.85rem,2.5vw,1.4rem)" }}>{s.val}</p>
+                  <p className="text-primary-foreground/50" style={{ fontSize: "clamp(0.58rem,1.3vw,0.72rem)" }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* CTA */}
+          <Reveal delay={0.3}>
+            <div className="text-center">
+              <Link to="/auth"
+                className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground font-bold rounded-2xl hover:scale-105 transition-transform shadow-2xl"
+                style={{ padding: "clamp(0.65rem,2vw,0.95rem) clamp(1.5rem,4vw,2.5rem)", fontSize: "clamp(0.85rem,1.8vw,1rem)" }}>
+                <Award className="w-4 h-4" /> Start Earning Points Today
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <p className="text-primary-foreground/45 mt-3" style={{ fontSize: "clamp(0.7rem,1.4vw,0.82rem)" }}>
+                Free to join. Points count from your very first booking.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ──── ABOUT ───────────────────────────────────────────────────────── */}
-      <section id="about" className="py-14 sm:py-24 bg-background">
+      <section id="about" className="py-9 sm:py-24 bg-background relative">
+        <CarPattern opacity={0.025} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-14 items-center">
             <div>
@@ -611,7 +788,7 @@ export default function LandingPage() {
                 <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   {(ab("values") || D.about.values).map((v: string, i: number) => (
                     <div key={i} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-secondary flex-shrink-0" />
+                      <BadgeCheck className="w-4 h-4 text-secondary flex-shrink-0" />
                       <span className="font-medium" style={{ fontSize: "clamp(0.7rem,1.5vw,0.83rem)" }}>{v}</span>
                     </div>
                   ))}
@@ -625,7 +802,7 @@ export default function LandingPage() {
                 <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary via-primary to-secondary/20 overflow-hidden shadow-2xl" style={{ aspectRatio: "4/3" }}>
                   <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 40%,#FF8C00,transparent 50%),radial-gradient(circle at 70% 70%,rgba(0,120,200,.8),transparent 50%)" }} />
                   <div className="relative z-10 h-full flex flex-col items-center justify-center" style={{ padding: "clamp(1rem,4vw,2rem)" }}>
-                    <img src={logoBrand} alt="Oasis" className="w-auto drop-shadow-2xl mb-4 sm:mb-6" style={{ height: "clamp(2.5rem,7vw,4.5rem)" }} />
+                    <img src={logoBrand} alt="Oasis" className="w-auto drop-shadow-2xl mb-4 sm:mb-6" style={{ height: "clamp(4rem,10vw,7rem)" }} />
                     <div className="grid grid-cols-3 gap-2 sm:gap-5 w-full">
                       {[
                         { val: ab("vehicles_washed") || "2,500+", label: "Vehicles Washed" },
@@ -657,7 +834,7 @@ export default function LandingPage() {
       </section>
 
       {/* ──── CONTACT ─────────────────────────────────────────────────────── */}
-      <section id="contact" className="py-14 sm:py-24 bg-muted/25 relative">
+      <section id="contact" className="py-9 sm:py-24 bg-muted/25 relative">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Get in Touch" title="Contact Us" sub="Ready to book or have a question? We are always available." />
@@ -725,7 +902,7 @@ export default function LandingPage() {
       </section>
 
       {/* ──── CTA BAND ────────────────────────────────────────────────────── */}
-      <section className="py-14 sm:py-20 bg-secondary relative overflow-hidden">
+      <section className="py-9 sm:py-20 bg-secondary relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 20% 50%,white,transparent 55%),radial-gradient(circle at 80% 50%,white,transparent 55%)" }} />
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center relative z-10">
           <Reveal>
@@ -814,7 +991,7 @@ function ServiceCard({ svc }: { svc: any }) {
         <Car className="absolute right-3 bottom-2 text-white/8" style={{ width: "clamp(3rem,8vw,5rem)", height: "clamp(3rem,8vw,5rem)" }} />
         <div className="rounded-xl bg-white/10 border border-white/15 flex items-center justify-center relative z-10"
           style={{ width: "clamp(2.5rem,6vw,3.5rem)", height: "clamp(2.5rem,6vw,3.5rem)" }}>
-          <Wrench className="text-secondary" style={{ width: "clamp(1.1rem,3vw,1.6rem)", height: "clamp(1.1rem,3vw,1.6rem)" }} />
+          <Sparkles className="text-secondary" style={{ width: "clamp(1.1rem,3vw,1.6rem)", height: "clamp(1.1rem,3vw,1.6rem)" }} />
         </div>
       </div>
       <div className="flex flex-col flex-1" style={{ padding: "clamp(0.85rem,2.5vw,1.25rem)" }}>
@@ -867,7 +1044,7 @@ function PlanCard({ plan, isPopular }: { plan: any; isPopular: boolean }) {
           "Loyalty points earned",
         ].map((f, j) => (
           <div key={j} className="flex items-center gap-1.5">
-            <CheckCircle2 className={`w-3.5 h-3.5 flex-shrink-0 ${isPopular ? "text-secondary-foreground" : "text-secondary"}`} />
+            <PackageCheck className={`w-3.5 h-3.5 flex-shrink-0 ${isPopular ? "text-secondary-foreground" : "text-secondary"}`} />
             <span style={{ fontSize: "clamp(0.67rem,1.3vw,0.78rem)" }}>{f}</span>
           </div>
         ))}

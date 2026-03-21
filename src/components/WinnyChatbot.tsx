@@ -331,9 +331,9 @@ export default function WinnyChatbot({ onOpenChange }: WinnyChatbotProps = {}) {
               initial={{ opacity: 0, scale: 0.8, x: 10 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.8, x: 10 }}
-              className="bg-card border border-border shadow-lg rounded-2xl rounded-br-none px-3 py-2 text-xs font-semibold text-foreground whitespace-nowrap max-w-[180px]"
+              className="bg-card border border-border shadow-lg rounded-2xl rounded-br-none px-3 py-2 font-semibold text-foreground max-w-[160px] leading-tight text-[11px]"
             >
-              👋 Hi! I'm Winny, ask me anything!
+              👋 Hi! I'm Winny!
             </motion.div>
           )}
         </AnimatePresence>

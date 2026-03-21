@@ -62,6 +62,8 @@ const NAV_ITEMS: { key: Tab; label: string; icon: any; group?: string }[] = [
 const GROUPS = ["Overview", "Operations", "People", "Finance", "Platform", "System"];
 
 export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: AdminSidebarProps) {
+  // Use a ref to preserve nav scroll position across tab changes
+  const navScrollRef = React.useRef<HTMLDivElement>(null);
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* ── Stats mini-strip ──────────────────────────────────────── */}
@@ -83,7 +85,7 @@ export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: A
       </div>
 
       {/* ── Navigation ────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+      <nav ref={navScrollRef} className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5" style={{ overscrollBehavior: "contain" }}>
         {GROUPS.map(group => {
           const items = NAV_ITEMS.filter(i => i.group === group);
           return (
@@ -94,7 +96,7 @@ export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: A
               {items.map(item => (
                 <button
                   key={item.key}
-                  onClick={() => { setTab(item.key); onToggle(); /* close mobile */ }}
+                  onClick={() => { setTab(item.key); if (isOpen) onToggle(); /* only close mobile drawer */ }}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all mb-0.5 ${
                     tab === item.key
                       ? "bg-primary text-primary-foreground shadow-sm"
