@@ -63,7 +63,7 @@ const GROUPS = ["Overview", "Operations", "People", "Finance", "Platform", "Syst
 
 export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: AdminSidebarProps) {
   // Use a ref to preserve nav scroll position across tab changes
-  const navScrollRef = React.useRef<HTMLDivElement>(null);
+  const navScrollRef = useRef<HTMLDivElement>(null);
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* ── Stats mini-strip ──────────────────────────────────────── */}

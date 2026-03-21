@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Phone, Mail, MessageCircle, ChevronDown, ChevronLeft, ChevronRight,
   Star, CheckCircle2, ArrowRight, Truck, Car, ShieldCheck, Clock, Award,
@@ -27,7 +27,7 @@ const D: Record<string, any> = {
   hero: {
     headline: "OASIS",
     subheadline2: "WE COME. YOU SHINE.",
-    body: "Premium mobile car wash and detailing at your doorstep anywhere in Windhoek.",
+    body: "Professional mobile detailing at your doorstep, anywhere in Windhoek.",
     cta_primary: "Book a Wash",
     cta_secondary: "Our Services",
     badge: "Serving Windhoek, Namibia",
@@ -74,7 +74,7 @@ const D: Record<string, any> = {
 };
 
 // ─── Water drops ──────────────────────────────────────────────────────────────
-const DROPS = Array.from({ length: 16 }, (_, i) => ({
+const DROPS = Array.from({ length: 5 }, (_, i) => ({
   id: i, x: Math.random() * 100, size: 5 + Math.random() * 10,
   delay: Math.random() * 6, dur: 5 + Math.random() * 4, opacity: 0.05 + Math.random() * 0.12,
 }));
@@ -96,7 +96,7 @@ function WaterDrops() {
 // ─── Reveal on scroll ─────────────────────────────────────────────────────────
 function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }}
+    <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }} className={className}>
       {children}
@@ -200,26 +200,6 @@ function StableCarousel({ items, renderItem, interval = 4200, minHeight }: {
   );
 }
 
-// ─── Subtle car background pattern ────────────────────────────────────────────
-function CarPattern({ opacity = 0.04 }: { opacity?: number }) {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ opacity }}>
-        <defs>
-          <pattern id="car-tile" x="0" y="0" width="120" height="80" patternUnits="userSpaceOnUse">
-            <path d="M22 54 L22 47 L30 40 L46 38 L56 40 L64 47 L64 54 Z" fill="currentColor" fillOpacity="1" />
-            <circle cx="29" cy="55" r="5.5" fill="currentColor" />
-            <circle cx="57" cy="55" r="5.5" fill="currentColor" />
-            <rect x="32" y="40" width="22" height="7" rx="2" fill="currentColor" fillOpacity="0.4" />
-            <line x1="15" y1="50" x2="22" y2="50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="64" y1="50" x2="71" y2="50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#car-tile)" />
-      </svg>
-    </div>
-  );
-}
 
 // ─── Professional icon map ────────────────────────────────────────────────────
 const ICON: Record<string, React.ReactNode> = {
@@ -235,10 +215,6 @@ const ICON: Record<string, React.ReactNode> = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const heroRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll();
-  const heroY  = useTransform(scrollYProgress, [0, 0.2], ["0%", "12%"]);
-  const heroOp = useTransform(scrollYProgress, [0, 0.22], [1, 0]);
 
   const [cms,      setCms]      = useState<Record<string, any>>(D);
   const [services, setServices] = useState<any[]>([]);
@@ -435,7 +411,7 @@ export default function LandingPage() {
       )}
 
       {/* ──── HERO ────────────────────────────────────────────────────────── */}
-      <section ref={heroRef} className="relative min-h-[100svh] flex items-center overflow-hidden bg-primary pb-10 lg:pb-0">
+      <section className="relative min-h-[100svh] flex items-center overflow-hidden bg-primary pb-10 lg:pb-0">
         <WaterDrops />
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-secondary/20 blur-[100px]"
@@ -446,45 +422,26 @@ export default function LandingPage() {
           backgroundSize: "clamp(30px,5vw,60px) clamp(30px,5vw,60px)"
         }} />
 
-        <motion.div style={{ opacity: heroOp, y: heroY }} className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-24 pb-16 sm:pt-28 text-center">
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 pt-24 pb-16 sm:pt-28 text-center">
           {/* Badge */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .5 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .4 }}
             className="inline-flex items-center gap-2 bg-white/10 border border-white/15 text-primary-foreground/85 font-bold uppercase rounded-full mb-6"
             style={{ padding: "0.375rem 1rem", fontSize: "clamp(8px,1.8vw,11px)", letterSpacing: "0.18em" }}>
             <MapPin className="w-3 h-3 text-secondary flex-shrink-0" /> {h("badge")}
           </motion.div>
 
-          {/* "OASIS" slides up first */}
-          <div className="overflow-hidden mb-1">
-            <motion.div initial={{ y: "105%", opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}>
-              <span className="block font-display font-black text-white leading-none tracking-tight"
-                style={{ fontSize: "clamp(3.5rem,14vw,10rem)", letterSpacing: "-0.02em" }}>
-                {h("headline")}
-              </span>
-            </motion.div>
-          </div>
-
-          {/* Tagline slides up second */}
-          <div className="overflow-hidden mb-7 sm:mb-9">
-            <motion.div initial={{ y: "105%", opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.9, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}>
-              <span className="block font-display font-black text-secondary leading-tight"
-                style={{ fontSize: "clamp(1.1rem,4.5vw,3.5rem)" }}>
-                {String(h("subheadline2")).replace(/\n/g, " · ")}
-              </span>
-            </motion.div>
-          </div>
+          {/* Looping hero headlines — "OASIS" then "WE COME. YOU SHINE." alternate */}
+          <HeroLoop headline={h("headline")} tagline={String(h("subheadline2")).replace(/\n/g, " · ")} />
 
           {/* Body */}
-          <motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .65, delay: .9 }}
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .5, delay: .5 }}
             className="text-primary-foreground/70 leading-relaxed mb-8 max-w-xl mx-auto"
             style={{ fontSize: "clamp(0.9rem,2.2vw,1.15rem)" }}>
             {h("body")}
           </motion.p>
 
           {/* CTAs */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, delay: 1.1 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .5, delay: .7 }}
             className="flex flex-wrap items-center gap-3 justify-center">
             <Link to="/book"
               className="group flex items-center gap-2 bg-secondary text-secondary-foreground font-bold rounded-2xl hover:scale-105 transition-transform shadow-2xl"
@@ -498,7 +455,7 @@ export default function LandingPage() {
               {h("cta_secondary")} <ChevronDown className="w-4 h-4" />
             </button>
           </motion.div>
-        </motion.div>
+        </div>
 
         <motion.div className="absolute bottom-12 lg:bottom-5 left-1/2 -translate-x-1/2" animate={{ y: [0, 7, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
           <ChevronDown className="w-5 h-5 text-primary-foreground/30" />
@@ -507,7 +464,6 @@ export default function LandingPage() {
 
       {/* ──── HOW IT WORKS ────────────────────────────────────────────────── */}
       <section id="how-it-works" className="py-9 sm:py-24 bg-muted/25 relative">
-        <CarPattern opacity={0.03} />
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Simple Process" title="Done in 3 Easy Steps" sub="Getting your car professionally detailed has never been easier." />
@@ -541,7 +497,6 @@ export default function LandingPage() {
 
       {/* ──── SERVICES — stable carousel on mobile ────────────────────────── */}
       <section id="services" className="py-9 sm:py-24 bg-background relative">
-        <CarPattern opacity={0.035} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="What We Do" title="Services for Every Vehicle" sub="Professional-grade cleaning for all vehicle sizes." />
 
@@ -613,7 +568,6 @@ export default function LandingPage() {
 
       {/* ──── PRICING — stable carousel on mobile ─────────────────────────── */}
       <section id="pricing" className="py-9 sm:py-24 bg-background relative">
-        <CarPattern opacity={0.035} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <SH badge="Subscription Plans" title={ps("title")} sub={ps("subtitle")} />
           <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -762,7 +716,6 @@ export default function LandingPage() {
 
       {/* ──── ABOUT ───────────────────────────────────────────────────────── */}
       <section id="about" className="py-9 sm:py-24 bg-background relative">
-        <CarPattern opacity={0.025} />
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-14 items-center">
             <div>
@@ -817,12 +770,12 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-                <motion.div animate={{ y: [-4, 4, -4] }} transition={{ duration: 3, repeat: Infinity }}
+                <motion.div 
                   className="absolute -top-3 -right-3 sm:-top-4 sm:-right-4 bg-secondary text-secondary-foreground font-bold px-2.5 sm:px-3 py-1.5 rounded-full shadow-xl"
                   style={{ fontSize: "clamp(8px,1.3vw,11px)" }}>
                   <Award className="w-3 h-3 inline mr-0.5" />Windhoek's Best
                 </motion.div>
-                <motion.div animate={{ y: [4, -4, 4] }} transition={{ duration: 4, repeat: Infinity }}
+                <motion.div 
                   className="absolute -bottom-3 -left-3 sm:-bottom-4 sm:-left-4 bg-card border border-border font-bold px-2.5 sm:px-3 py-1.5 rounded-full shadow-xl"
                   style={{ fontSize: "clamp(8px,1.3vw,11px)" }}>
                   <Zap className="w-3 h-3 inline mr-0.5 text-secondary" />Book in 2 min
