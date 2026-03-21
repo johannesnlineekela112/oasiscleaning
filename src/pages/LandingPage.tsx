@@ -5,7 +5,7 @@
  * services/pricing fully visible on mobile, chatbot sizing in WinnyChatbot.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -200,6 +200,59 @@ function StableCarousel({ items, renderItem, interval = 4200, minHeight }: {
   );
 }
 
+
+// ─── HeroLoop — "OASIS" and "WE COME. YOU SHINE." cycle independently ─────────
+function HeroLoop({ headline, tagline }: { headline: string; tagline: string }) {
+  const [phase, setPhase] = React.useState<0 | 1>(0);
+
+  React.useEffect(() => {
+    const id = setInterval(() => setPhase(p => (p === 0 ? 1 : 0)), 2800);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="mb-7 sm:mb-9" style={{ minHeight: "clamp(4rem,16vw,12rem)" }}>
+      {/* OASIS */}
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait">
+          {phase === 0 && (
+            <motion.div
+              key="headline"
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "-100%", opacity: 0 }}
+              transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}>
+              <span
+                className="block font-display font-black text-white leading-none tracking-tight"
+                style={{ fontSize: "clamp(3.5rem,14vw,10rem)", letterSpacing: "-0.02em" }}>
+                {headline}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {/* WE COME. YOU SHINE. */}
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait">
+          {phase === 1 && (
+            <motion.div
+              key="tagline"
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "-100%", opacity: 0 }}
+              transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}>
+              <span
+                className="block font-display font-black text-secondary leading-tight"
+                style={{ fontSize: "clamp(1.4rem,5vw,4rem)" }}>
+                {tagline}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
 
 // ─── Professional icon map ────────────────────────────────────────────────────
 const ICON: Record<string, React.ReactNode> = {

@@ -7,7 +7,7 @@
  * once fetched, so the panel itself has no async calls).
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X, CheckCircle2, CreditCard, Smartphone, Banknote } from "lucide-react";
 import type { PaymentDetails } from "@/lib/businessService";

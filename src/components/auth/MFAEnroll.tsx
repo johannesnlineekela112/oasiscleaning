@@ -10,7 +10,7 @@
  *  onCancel    — called if the admin wants to abort (will force logout)
  */
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Loader2, ShieldCheck, Copy, Check, KeyRound, AlertTriangle } from "lucide-react";
 import { enrollTOTP, verifyTOTPEnroll } from "@/lib/mfaService";

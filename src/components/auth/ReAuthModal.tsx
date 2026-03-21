@@ -26,7 +26,7 @@
  *  - Recording / approving commissions
  */
 
-import { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Loader2, ShieldAlert, X, ShieldCheck } from "lucide-react";
 import { verifyAdminPassword } from "@/lib/adminSession";

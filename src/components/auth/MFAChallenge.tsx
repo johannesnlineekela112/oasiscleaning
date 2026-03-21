@@ -10,7 +10,7 @@
  *  email      — shown in the subtitle for confirmation
  */
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Loader2, ShieldCheck, ArrowLeft, KeyRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { challengeAndVerifyTOTP } from "@/lib/mfaService";

@@ -16,7 +16,7 @@
  *  - Session login time stamped in sessionStorage for inactivity tracking.
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { CopyrightFooter } from "@/components/CopyrightFooter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Mail, ArrowLeft, Loader2, ShieldCheck, Eye, EyeOff } from "lucide-react";

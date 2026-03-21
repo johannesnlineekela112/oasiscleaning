@@ -9,7 +9,7 @@
  *   • Realtime subscriptions: bookings + booking_images
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { CopyrightFooter } from "@/components/CopyrightFooter";
 import { motion, AnimatePresence } from "framer-motion";
 import {

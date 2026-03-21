@@ -10,7 +10,7 @@
  * all live inside here so AdminDashboard stays lean.
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { BarChart2, Users, Map } from "lucide-react";
 import { AnalyticsOverview } from "./analytics/AnalyticsOverview";
 import { TeamPerformance }   from "./analytics/TeamPerformance";

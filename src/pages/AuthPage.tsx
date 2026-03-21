@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { CopyrightFooter } from "@/components/CopyrightFooter";
 import { motion } from "framer-motion";
 import { Lock, Mail, ArrowLeft, Loader2, User, UserPlus, Phone, Gift, ShieldAlert, Eye, EyeOff, KeyRound, CheckCircle } from "lucide-react";
