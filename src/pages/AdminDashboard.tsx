@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { CopyrightFooter } from "@/components/CopyrightFooter";
 import { auditLog, auditAuthEvent, getClientMeta } from "@/lib/auditService";
 import { AdminAnalytics } from "@/components/AdminAnalytics";
@@ -3467,6 +3467,32 @@ Expand the booking and upload photos using the camera section, then try again.`)
         </div>
       )}
 
+        {/* ══════════════════ WEBSITE TAB ══════════════════ */}
+        {tab === "website" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <Globe className="w-5 h-5 text-secondary" /> Website Content
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Edit all public-facing website content. Changes go live immediately.</p>
+            </div>
+            <WebsiteManager />
+          </motion.div>
+        )}
+
+        {/* ══════════════════ REVIEWS MANAGEMENT TAB ══════════════════ */}
+        {tab === "reviews_mgmt" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+            <div className="pb-4 border-b border-border">
+              <h2 className="font-display font-bold text-xl flex items-center gap-2">
+                <Star className="w-5 h-5 text-secondary" /> Review Management
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Publish, hide or remove customer reviews from the public website.</p>
+            </div>
+            <ReviewManagementTab />
+          </motion.div>
+        )}
+
           </div>{/* closes max-w-5xl content wrapper */}
         </main>{/* closes main flex content area */}
       </div>{/* closes flex row (sidebar + content) */}
@@ -3496,33 +3522,7 @@ Expand the booking and upload photos using the camera section, then try again.`)
         )}
       </AnimatePresence>
 
-
-      {/* ══════════════════ WEBSITE TAB ══════════════════ */}
-      {tab === "website" && (
-        <div className="space-y-5">
-          <div className="pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <Globe className="w-5 h-5 text-secondary" /> Website Content
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">Edit all public-facing website content. Changes go live immediately.</p>
-          </div>
-          <WebsiteManager />
-        </div>
-      )}
-
-      {/* ══════════════════ REVIEWS MANAGEMENT TAB ══════════════════ */}
-      {tab === "reviews_mgmt" && (
-        <div className="space-y-5">
-          <div className="pb-4 border-b border-border">
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <Star className="w-5 h-5 text-secondary" /> Review Management
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">Publish, hide or remove customer reviews from the public website.</p>
-          </div>
-          <ReviewManagementTab />
-        </div>
-      )}
-
+      <CopyrightFooter />
       <CopyrightFooter />
     </div>
   );
