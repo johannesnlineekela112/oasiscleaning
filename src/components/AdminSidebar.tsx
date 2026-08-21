@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useCallback} from "react";
 /**
  * AdminSidebar.tsx
  *
@@ -64,7 +64,25 @@ const GROUPS = ["Overview", "Operations", "People", "Finance", "Platform", "Syst
 
 export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: AdminSidebarProps) {
   // Use a ref to preserve nav scroll position across tab changes
-  const navScrollRef = useRef<HTMLDivElement>(null);
+  const navScrollRef   = useRef<HTMLDivElement>(null);
+  const savedScrollRef = useRef<number>(0);
+
+  // Save scroll position before tab causes a re-render
+  // and restore it after. Prevents the nav jumping to top on tab change.
+  const handleTabChange = useCallback((key: Tab) => {
+    if (navScrollRef.current) {
+      savedScrollRef.current = navScrollRef.current.scrollTop;
+    }
+    setTab(key);
+    if (isOpen) onToggle();
+  }, [setTab, isOpen, onToggle]);
+
+  // Restore scroll after render
+  useEffect(() => {
+    if (navScrollRef.current && savedScrollRef.current > 0) {
+      navScrollRef.current.scrollTop = savedScrollRef.current;
+    }
+  });
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* ── Stats mini-strip ──────────────────────────────────────── */}
@@ -97,7 +115,7 @@ export default function AdminSidebar({ tab, setTab, stats, isOpen, onToggle }: A
               {items.map(item => (
                 <button
                   key={item.key}
-                  onClick={() => { setTab(item.key); if (isOpen) onToggle(); /* only close mobile drawer */ }}
+                  onClick={() => handleTabChange(item.key)}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all mb-0.5 ${
                     tab === item.key
                       ? "bg-primary text-primary-foreground shadow-sm"

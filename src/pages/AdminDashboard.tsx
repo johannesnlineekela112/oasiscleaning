@@ -15,6 +15,7 @@ import {
   Sparkles, Filter, ChevronDown as ChevronDownIcon, RefreshCw as RefreshCwIcon,
   Camera, ImageIcon,
   FileSpreadsheet, Download, CheckSquare, Banknote, ReceiptText, BarChart2, Globe,
+  Star,
 } from "lucide-react";
 import {
   Booking, StaffMember, ServiceRow,
